@@ -107,7 +107,7 @@ This version adds the **analog radio extension**: earth-to-earth communication v
 ## The physics (unified force equation)
 
 ```
-F = (ΩC²) / (m·s)     [Newtons]
+F = (ΩC²) / (m·s)     [Josef Kulovany's corrected force equation]
 
 where ΩC² = 1          (field tension times charge squared = unity)
       e^iπ = -ΩC²      (Euler identity in the field-tension frame)
