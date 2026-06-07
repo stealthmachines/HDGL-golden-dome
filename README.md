@@ -1,3 +1,6 @@
+# Version 0 is to be construed as a roadmap.
+Our roadmap reaches far and wide, while v0.1 will return to something accessible in the near-term with focus on distributed comms and power.
+
 ... continues from https://github.com/stealthmachines/HDGL-fabric/tree/v0.4 , https://github.com/stealthmachines/HDGL-fabric/tree/v0.3 , https://github.com/stealthmachines/HDGL-fabric/tree/v0.2 , https://josefkulovany.com/demo/Turing-Complete%20Deploy/ for which enumerated files herein are part and parcel.
 
 <img width="1142" height="974" alt="image" src="https://github.com/user-attachments/assets/0ccc3a6e-6b1b-4621-92ae-55f6eb389e79" />
