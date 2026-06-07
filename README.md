@@ -9,7 +9,7 @@
 **Version:** V6.1 — Analog Radio Extension  
 **Axiom:** Ωₙ₊₁ = T(Ωₙ)  
 **Key:** φ = 1.6180339887498948 · π · Fib · Primes · ZC_PHI32 = 0x9E3779B9  
-**Author:** Josef / stealthmachines / Analog-Prime / zCHG.org
+**Author:** Josef Kulovany / stealthmachines / zCHG.org
 
 ---
 
