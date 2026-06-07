@@ -1,4 +1,4 @@
-# ... continues from https://github.com/stealthmachines/HDGL-fabric/tree/v0.4 , https://github.com/stealthmachines/HDGL-fabric/tree/v0.3 , https://github.com/stealthmachines/HDGL-fabric/tree/v0.2 for which enumerated files herein are part and parcel.
+... continues from https://github.com/stealthmachines/HDGL-fabric/tree/v0.4 , https://github.com/stealthmachines/HDGL-fabric/tree/v0.3 , https://github.com/stealthmachines/HDGL-fabric/tree/v0.2 for which enumerated files herein are part and parcel.
 
 <img width="1142" height="974" alt="image" src="https://github.com/user-attachments/assets/0ccc3a6e-6b1b-4621-92ae-55f6eb389e79" />
 
