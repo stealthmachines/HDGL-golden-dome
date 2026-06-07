@@ -419,7 +419,7 @@ The earth was always computing. We are learning to read it.
 ---
 
 ## Lineage
-
+*https://josefkulovany.com/demo/Turing-Complete%20Deploy/ 
 ```
 Day 1-3:  base4096, phi_chladni, grub9, prismatic recursion
 Day 4:    hdgl_lattice.hdgl, base4096 v2.0.2, hear series, networktv
