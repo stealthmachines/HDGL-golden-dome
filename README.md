@@ -438,6 +438,15 @@ EZ / Wu-Wei:
 
 ---
 
+SEE ALSO: 
+https://github.com/stealthmachines/Trailblaze
+https://github.com/stealthmachines/Analog-Prime
+https://github.com/stealthmachines/Analog-Prime-B
+https://github.com/stealthmachines/mersenne-prime-pipeline
+https://github.com/stealthmachines/Prime-Hunter-2
+
+For which more unlocks are achieved when more development and/or compute permit.
+
 *Licensed per https://zchg.org/t/legal-notice-copyright-applicable-ip-and-licensing-read-me/440*  
 *COPYRIGHT.html applies to all files in this suite.*
 
