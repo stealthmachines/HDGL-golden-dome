@@ -1,4 +1,6 @@
-# HDGL — Stand-Alone Source Tree (deduplicated, v0.1 → golden-dome)
+# MANIFEST
+
+## HDGL — Stand-Alone Source Tree (deduplicated, v0.1 → golden-dome)
 
 42 files, one copy of each, organized by what they actually are rather
 than which tag they happened to ship in. Built from byte-level (md5)
@@ -85,13 +87,7 @@ real H81-BTC-Pro bring-up — the spec and the boot-tested binary disagree.
 
 ## Not included here, on purpose
 
-`old files/` (the legacy archive — SQL store, NGINX store, the original
-larger Router64 kernel, DNA ENGINE V3, the EZ-by-zCHG MCP predecessor):
-confirmed identical across every tag, so it isn't duplicated here. It's
-documented in the prior turn of this conversation rather than re-shipped
-as another zip-of-zips.
-
-`README.md` per tag: deliberately excluded — every single tag has a
+MANIFEST.md is renamed README.md (this file) — every single tag has a
 different one (8 distinct versions across 9 states, never reused), and
 none of them are source. Available on request if you want the prose
 history rather than the code history.
