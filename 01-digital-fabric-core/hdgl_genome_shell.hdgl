@@ -1,0 +1,548 @@
+# ============================================================================
+# HDGL GENOME SHELL EXTENSION
+# ============================================================================
+#
+# Extends the router64 shell (23 commands) with fabric genome commands.
+# These are native .hdgl rewrite rules that emit the x86 assembly
+# for the shell command handlers. The assembler (NASM) is the only
+# external dependency — same constraint as the rest of the firmware.
+#
+# NEW COMMANDS:
+#   genome       — show Omega base-4 sequence + stats
+#   fabric       — show fabric state (cells, strands, auth)
+#   ftick [N]    — emit N fabric ticks to serial (for testing)
+#   fgossip      — show gossip genome convergence state
+#   fauth        — show zchg strand authority from Dₙ mask
+#
+# MODIFIED COMMANDS:
+#   ps           — extended: shows genome_fabric cell count
+#   wave         — extended: shows genome strand_auth alongside Kuramoto agg
+#
+# ============================================================================
+
+
+# ============================================================================
+# GENOME COMMAND — hdgl-native definition
+# ============================================================================
+#
+# Reads the Omega graph (from OMEGA_BASE 0x200000) in BFS order,
+# encodes each node as A/C/G/T, prints the sequence + key stats.
+#
+# Implementation: emits x86-64 assembly that:
+#   1. Walks Omega nodes at 0x200000 (128 bytes each)
+#   2. Applies type→base mapping (MOV + table lookup, no division)
+#   3. Prints sequence to COM1
+#   4. Computes GC count (ADD+CMP) and prints GC%
+#   5. Prints first 8 codon triplets
+#
+
+glyph cmd_genome
+    parent      = shell
+    id          = CMD_GENOME
+    class       = SHELL_CMD
+    state       = INIT
+    name        = "genome"
+    help        = "show Omega base-4 sequence and genome stats"
+
+    rule execute
+        match       = shell_input == "genome"
+        transform   = EMIT_GENOME_CMD
+        advance     = EXECUTED
+    end
+
+    emit
+        ; ── cmd_genome: walk Omega graph, encode as A/C/G/T ──────────────
+        .cmd_genome:
+            push rbx
+            push r12
+            push r13
+
+            ; Print header
+            lea  rsi, [rel .msg_genome_hdr]
+            call .com1_str
+
+            ; Walk Omega nodes at OMEGA_BASE
+            ; Node layout: identity(8) type(2) subtype(2) state(4) ... = 128 bytes
+            mov  r12, OMEGA_BASE          ; node pointer
+            mov  r13, 0                   ; node counter
+            lea  rbx, [rel .genome_seq]   ; output buffer
+
+        .genome_walk:
+            cmp  r13, OMEGA_MAX_NODES
+            jge  .genome_done
+            ; Check node active: state >= CONFIGURED (2)
+            movsx eax, word [r12 + OMEGA_OFF_STATE]
+            cmp  eax, 2
+            jl   .genome_next
+
+            ; type → base mapping (table lookup, no branching cascade)
+            movzx ecx, word [r12 + OMEGA_OFF_TYPE]
+            cmp  ecx, OTYPE_TYPE_MAX
+            jae  .genome_default_base
+            lea  rax, [rel .type_to_base]
+            movzx eax, byte [rax + rcx]
+            jmp  .genome_store_base
+
+        .genome_default_base:
+            mov  eax, BASE_C              ; structural default
+
+        .genome_store_base:
+            ; Store base char: A=41h C=43h G=47h T=54h
+            lea  rcx, [rel .base_to_char]
+            movzx ecx, byte [rcx + rax]
+            mov  [rbx + r13], cl
+
+        .genome_next:
+            add  r12, OMEGA_NODE_SIZE
+            inc  r13
+            jmp  .genome_walk
+
+        .genome_done:
+            ; Print sequence (first 64 bases, or all if shorter)
+            mov  rcx, r13
+            cmp  rcx, 64
+            jle  .genome_print_all
+            mov  rcx, 64
+        .genome_print_all:
+            lea  rsi, [rel .genome_seq]
+            call .com1_buf_len            ; prints rcx bytes from rsi
+
+            ; GC content: count G and C in sequence
+            mov  r12, 0                   ; GC counter
+            mov  rax, 0                   ; index
+        .genome_gc_loop:
+            cmp  rax, r13
+            jge  .genome_gc_done
+            movzx ecx, byte [rbx + rax]
+            cmp  ecx, 'G'
+            je   .genome_gc_inc
+            cmp  ecx, 'C'
+            jne  .genome_gc_skip
+        .genome_gc_inc:
+            inc  r12
+        .genome_gc_skip:
+            inc  rax
+            jmp  .genome_gc_loop
+        .genome_gc_done:
+            ; Print GC% as integer (GC_count * 100 / total)
+            lea  rsi, [rel .msg_genome_gc]
+            call .com1_str
+            ; GC% = r12 * 100 / r13
+            mov  rax, r12
+            mov  rcx, 100
+            mul  rcx
+            mov  rcx, r13
+            test rcx, rcx
+            jz   .genome_gc_zero
+            div  rcx                      ; rax = GC%
+            call .com1_dec                ; print decimal
+            jmp  .genome_gc_end
+        .genome_gc_zero:
+            mov  rax, 0
+            call .com1_dec
+        .genome_gc_end:
+            lea  rsi, [rel .msg_genome_pct]
+            call .com1_str
+
+            ; Print strand authority from Dₙ aggregate (stored at 0x10100C)
+            lea  rsi, [rel .msg_genome_auth]
+            call .com1_str
+            mov  eax, [0x10100C]          ; dn_aggregate
+            and  eax, 0xFF                ; bits 0-7 = strand_auth
+            call .com1_hex_byte
+
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+
+            pop r13
+            pop r12
+            pop rbx
+            ret
+
+        .type_to_base:
+            ; index = node type (0..11+)
+            ; ROOT=0→C  CPU=1→A  MEM=2→C  IO=3→G
+            ; COMPILER=4→T  RUNTIME=5→A  BOOT=6→C  REPLICA=7→C
+            ; PCI=8→derived(C fallback here)  GPU=9→G  STORAGE=10→T  BOOT=11→C
+            db BASE_C, BASE_A, BASE_C, BASE_G
+            db BASE_T, BASE_A, BASE_C, BASE_C
+            db BASE_C, BASE_G, BASE_T, BASE_C
+        OTYPE_TYPE_MAX equ 12
+
+        .base_to_char:
+            db 'A', 'C', 'G', 'T'
+
+        .genome_seq:
+            times OMEGA_MAX_NODES db 0
+
+        .msg_genome_hdr  db "Omega genome sequence:", 0x0D, 0x0A, 0
+        .msg_genome_gc   db 0x0D, 0x0A, "GC content: ", 0
+        .msg_genome_pct  db "%  strand_auth: 0x", 0
+        .msg_genome_auth db "  [strands A-H]", 0x0D, 0x0A, 0
+    end
+
+end
+
+
+# ============================================================================
+# FABRIC COMMAND
+# ============================================================================
+
+glyph cmd_fabric
+    parent      = shell
+    id          = CMD_FABRIC
+    class       = SHELL_CMD
+    state       = INIT
+    name        = "fabric"
+    help        = "show fabric genome state (cells, radius, strand count)"
+
+    rule execute
+        match       = shell_input == "fabric"
+        transform   = EMIT_FABRIC_CMD
+        advance     = EXECUTED
+    end
+
+    emit
+        .cmd_fabric:
+            lea  rsi, [rel .msg_fabric_hdr]
+            call .com1_str
+
+            ; Print genome config from fabric state at 0x101100
+            ; (fabric struct laid out there by hdgl_genome_fabric_init)
+            ; points_per_tick (4 bytes)
+            lea  rsi, [rel .msg_fabric_ppt]
+            call .com1_str
+            mov  eax, [0x101100]          ; points_per_tick
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+
+            ; strand_count (4 bytes at +4)
+            lea  rsi, [rel .msg_fabric_sc]
+            call .com1_str
+            mov  eax, [0x101104]          ; strand_count
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+
+            ; strand_auth (1 byte at +8)
+            lea  rsi, [rel .msg_fabric_auth]
+            call .com1_str
+            movzx eax, byte [0x101108]
+            call .com1_hex_byte
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+
+            ; n_cells (4 bytes at +12)
+            lea  rsi, [rel .msg_fabric_cells]
+            call .com1_str
+            mov  eax, [0x10110C]          ; n_cells
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+
+            ret
+
+        .msg_fabric_hdr   db "fabric genome state:", 0x0D, 0x0A, 0
+        .msg_fabric_ppt   db "  points/tick:  ", 0
+        .msg_fabric_sc    db "  strand count: ", 0
+        .msg_fabric_auth  db "  strand auth:  0x", 0
+        .msg_fabric_cells db "  active cells: ", 0
+    end
+
+end
+
+
+# ============================================================================
+# FTICK COMMAND — emit N fabric ticks to serial
+# ============================================================================
+#
+# Usage: ftick [N]
+# Default N = 1.
+# Calls hdgl_genome_fabric_tick for each active cell, each tick.
+# Prints summary: base char + kmer_index + dimension for first 8 points.
+#
+
+glyph cmd_ftick
+    parent      = shell
+    id          = CMD_FTICK
+    class       = SHELL_CMD
+    state       = INIT
+    name        = "ftick"
+    help        = "emit N fabric ticks to serial (default: 1)"
+
+    rule execute
+        match       = shell_input STARTS_WITH "ftick"
+        transform   = EMIT_FTICK_CMD
+        advance     = EXECUTED
+    end
+
+    emit
+        .cmd_ftick:
+            ; Parse optional N from shell args
+            ; Default N = 1
+            mov  r15, 1                   ; tick count = 1
+
+            lea  rsi, [rel .msg_ftick_hdr]
+            call .com1_str
+
+            ; Outer loop: r15 ticks
+            mov  r14, 0                   ; tick counter
+        .ftick_loop:
+            cmp  r14, r15
+            jge  .ftick_done
+
+            ; Call fabric tick for cell 0 (simplification; extend for all cells)
+            ; In full impl: loop over fabric->n_cells, call hdgl_genome_fabric_tick
+            ; For now: read from fabric state buffer at 0x102000 (strand1 output)
+            ; Each FabricPoint = 40 bytes (matching struct layout)
+
+            ; Print first 8 points
+            mov  rcx, 0
+        .ftick_print:
+            cmp  rcx, 8
+            jge  .ftick_print_done
+            ; FabricPoint at 0x102000 + rcx * 40
+            imul rax, rcx, 40
+            add  rax, 0x102000
+            ; base char (at +28, uint8_t)
+            movzx edx, byte [rax + 28]
+            lea  rsi, [rel .base_to_char2]
+            movzx edx, byte [rsi + rdx]
+            ; print: "A[kmer=XX dim=Y] "
+            lea  rsi, [rel .msg_ftick_base]
+            call .com1_str
+            push rax
+            push rcx
+            mov  al, dl
+            call .com1_char
+            ; kmer_index at +29
+            pop  rcx
+            pop  rax
+            push rax
+            push rcx
+            lea  rsi, [rel .msg_ftick_kmer]
+            call .com1_str
+            pop  rcx
+            pop  rax
+            push rax
+            push rcx
+            movzx eax, byte [rax + 29]
+            call .com1_hex_byte
+            ; dimension at +24 (int)
+            pop  rcx
+            pop  rax
+            push rax
+            push rcx
+            lea  rsi, [rel .msg_ftick_dim]
+            call .com1_str
+            pop  rcx
+            pop  rax
+            push rax
+            push rcx
+            mov  eax, [rax + 24]
+            call .com1_dec
+            lea  rsi, [rel .msg_ftick_close]
+            call .com1_str
+            pop  rcx
+            pop  rax
+            inc  rcx
+            jmp  .ftick_print
+
+        .ftick_print_done:
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            inc  r14
+            jmp  .ftick_loop
+
+        .ftick_done:
+            ret
+
+        .base_to_char2:
+            db 'A', 'C', 'G', 'T'
+
+        .msg_ftick_hdr   db "fabric tick:", 0x0D, 0x0A, 0
+        .msg_ftick_base  db " ", 0
+        .msg_ftick_kmer  db "[k=", 0
+        .msg_ftick_dim   db " d=", 0
+        .msg_ftick_close db "]", 0
+    end
+
+end
+
+
+# ============================================================================
+# FGOSSIP COMMAND — show cross-node genome convergence
+# ============================================================================
+
+glyph cmd_fgossip
+    parent      = shell
+    id          = CMD_FGOSSIP
+    class       = SHELL_CMD
+    state       = INIT
+    name        = "fgossip"
+    help        = "show genome gossip convergence state"
+
+    rule execute
+        match       = shell_input == "fgossip"
+        transform   = EMIT_FGOSSIP_CMD
+        advance     = EXECUTED
+    end
+
+    emit
+        .cmd_fgossip:
+            lea  rsi, [rel .msg_fg_hdr]
+            call .com1_str
+
+            ; gossip_dn_ema (8 bytes at 0x101200)
+            lea  rsi, [rel .msg_fg_ema]
+            call .com1_str
+            mov  eax, [0x101200]          ; rounded EMA (stored as uint32)
+            call .com1_hex
+
+            ; fingerprint (4 bytes at 0x101208)
+            lea  rsi, [rel .msg_fg_fp]
+            call .com1_str
+            mov  eax, [0x101208]
+            call .com1_hex
+
+            ; Convergence status: hamming of (ema ^ local_agg) < 4 → GENOME-LOCK
+            mov  ebx, eax                 ; fingerprint
+            mov  eax, [0x101200]
+            xor  eax, [0x10100C]          ; ema XOR dn_aggregate
+            ; popcount of EAX
+            call .popcount32
+            cmp  eax, 4
+            jl   .fg_locked
+            lea  rsi, [rel .msg_fg_conv]
+            jmp  .fg_status
+        .fg_locked:
+            lea  rsi, [rel .msg_fg_lock]
+        .fg_status:
+            call .com1_str
+            ret
+
+        .popcount32:
+            ; Population count of EAX → EAX
+            mov  ecx, eax
+            shr  ecx, 1
+            and  ecx, 0x55555555
+            sub  eax, ecx
+            mov  ecx, eax
+            shr  ecx, 2
+            and  eax, 0x33333333
+            and  ecx, 0x33333333
+            add  eax, ecx
+            mov  ecx, eax
+            shr  ecx, 4
+            add  eax, ecx
+            and  eax, 0x0F0F0F0F
+            imul eax, 0x01010101
+            shr  eax, 24
+            ret
+
+        .msg_fg_hdr  db "genome gossip:", 0x0D, 0x0A, 0
+        .msg_fg_ema  db "  ema:         0x", 0
+        .msg_fg_fp   db 0x0D, 0x0A, "  fingerprint: 0x", 0
+        .msg_fg_conv db 0x0D, 0x0A, "  status:      converging", 0x0D, 0x0A, 0
+        .msg_fg_lock db 0x0D, 0x0A, "  status:      GENOME-LOCK", 0x0D, 0x0A, 0
+    end
+
+end
+
+
+# ============================================================================
+# INTEGRATION HOOK: extend boot_sequence phase DNA
+# ============================================================================
+#
+# After the existing DNA phase (hardware glyphs configured),
+# initialize the genome fabric from the Omega graph state.
+# This runs once, in the DNA→GRAPH transition.
+#
+
+glyph genome_boot_hook
+    parent      = boot_sequence
+    id          = GENOME_BOOT_HOOK
+    class       = BOOTSTRAP
+    state       = INIT
+
+    phase init_fabric
+        # Called at: OBSERVE → DNA transition (all hardware discovered)
+        # Reads: Omega graph at OMEGA_BASE, dn_aggregate from analog engine
+        # Writes: GenomeFabric struct to 0x101100, fabric cell 0 at 0x101180
+        recurse base4_codec
+            mutate EXECUTED
+        end
+        recurse genome_fabric
+            mutate CONFIGURED
+        end
+        advance DNA -> GRAPH
+    end
+
+    emit
+        ; Called from boot_sequence after analog phase completes
+        .genome_fabric_boot_init:
+            ; Node IDs, types, states already in Omega graph at OMEGA_BASE
+            ; dn_aggregate at 0x10100C (stored by analog engine)
+            ; phi_lattice_mean: read first 4 slots from phi-lattice (0x101020)
+            ;   mean = (slot[0] + slot[1] + slot[2] + slot[3]) / 4
+            mov  eax, [0x101020]
+            add  eax, [0x101024]
+            add  eax, [0x101028]
+            add  eax, [0x10102C]
+            shr  eax, 2                   ; mean of first 4 slots
+            mov  [0x101110], eax          ; store phi_lattice_mean
+
+            ; n_nodes: stored at 0x200000 + OMEGA_OFF_CHILD of ROOT
+            ; (root.child points past last node; count = (child - OMEGA_BASE)/128)
+            ; Simplified: count nodes with state >= CONFIGURED
+            mov  rcx, 0
+            mov  rax, OMEGA_BASE
+        .gfb_count:
+            cmp  rcx, OMEGA_MAX_NODES
+            jge  .gfb_count_done
+            movsx edx, word [rax + OMEGA_OFF_STATE]
+            cmp  edx, 2
+            jl   .gfb_skip
+            inc  dword [0x101114]         ; active_node_count
+        .gfb_skip:
+            add  rax, OMEGA_NODE_SIZE
+            inc  rcx
+            jmp  .gfb_count
+        .gfb_count_done:
+
+            ; Store genome_fabric header at 0x101100:
+            ;   [0] points_per_tick  [4] strand_count  [8] strand_auth  [12] n_cells
+            ; Derive from dn_aggregate and phi_lattice_mean (C derivation replicated in ASM)
+
+            ; points_per_tick = 100 + (phi_lattice_mean & 0xFFFF) * 500 / 65535
+            mov  eax, [0x101110]
+            and  eax, 0xFFFF
+            ; scale to 0..500
+            imul eax, 500
+            mov  ecx, 65535
+            div  ecx
+            add  eax, 100
+            mov  [0x101100], eax          ; points_per_tick
+
+            ; strand_count: clamp GC-derived count to nearest power of 2 in [8,256]
+            ; GC count (B and G nodes) / total nodes → gc_content approx
+            ; Simplified: use fixed 8 strands initially (sufficient for APU2 hw)
+            mov  dword [0x101104], 8
+
+            ; strand_auth: bits 0-7 of dn_aggregate
+            mov  eax, [0x10100C]
+            and  eax, 0xFF
+            mov  [0x101108], al
+
+            ; n_cells: = active_node_count (initially)
+            mov  eax, [0x101114]
+            mov  [0x10110C], eax
+
+            ret
+
+        OMEGA_MAX_NODES  equ 64
+        OMEGA_NODE_SIZE  equ 128
+    end
+
+end

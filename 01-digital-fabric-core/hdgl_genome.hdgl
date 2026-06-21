@@ -1,0 +1,414 @@
+# ============================================================================
+# HDGL GENOME FABRIC ENGINE
+# ============================================================================
+#
+# PHILOSOPHY:
+#   The Omega graph IS the genome. The genome IS the program.
+#   Every parameter — colors, geometry, topology, timing — derives from
+#   the Omega graph itself via the same three primitives the analog engine
+#   already computes:
+#
+#     1. Dₙ(r) = √(φ·Fₙ·2ⁿ·Pₙ·Ω)·rᵏ          ← the continuous signal
+#     2. Kuramoto θᵢ locked phases               ← the derived statistics
+#     3. A=0 C=1 G=2 T=3 base-4 glyph encoding  ← the codec
+#
+#   No FASTA file. The Omega hardware graph IS the FASTA.
+#   CPU → A (purine, energetic)
+#   MEM → C (pyrimidine, structural)
+#   IO  → G (purine, bridging)
+#   COMPILER → T (pyrimidine, templating)
+#   Each PCI child → codon derived from (vendor_id mod 4, device_id mod 4, class mod 4)
+#
+# UNIVERSAL CONSTANTS ONLY (facts, not configuration):
+#   φ = 1.6180339887498948
+#   √φ = 1.2720196495140570  (binary threshold)
+#   π = 3.14159265358979323846
+#   Golden angle = 2π/φ² rad
+#   A=0, C=1, G=2, T=3 (information theory)
+#
+# WHAT IS GENERATED FROM THE OMEGA GRAPH:
+#   ✓ Strand count      (from active Omega node count, clamped 8..256)
+#   ✓ Points per tick   (from phi-lattice slot mean after consensus)
+#   ✓ Core radius       (from Dₙ aggregate / √φ)
+#   ✓ Strand separation (from AT-equivalent ratio of purine nodes)
+#   ✓ Color palette     (from codon frequencies of the Omega base-4 sequence)
+#   ✓ Geometry dims     (from k-mer complexity of the Omega base-4 sequence)
+#   ✓ Camera path       (from Kuramoto θᵢ locked phases)
+#   ✓ Division rules    (from phi-lattice consensus tick delta)
+#   ✓ zchg strand auth  (from Dₙ(r) > √φ bitmask)
+#
+# ============================================================================
+
+
+# ============================================================================
+# UNIVERSAL CONSTANTS (same as hdgl_analog.hdgl — referenced, not redefined)
+# ============================================================================
+
+glyph phi
+    id          = PHI
+    class       = CONSTANT
+    state       = EXECUTED
+    value       = 1.6180339887498948
+    inv         = 0.6180339887498948
+    sqrt        = 1.2720196495140570   # √φ — binary threshold AND strand threshold
+    ln          = 0.4812118250596035
+end
+
+glyph golden_angle
+    # θ_g = 2π/φ² = 2π·φ⁻² = 2π·(1/φ+1)⁻¹·(1/φ)  — the spiral generator
+    # This is what makes sunflower seeds not overlap.
+    # In the fabric: successive Omega nodes project at golden-angle offsets.
+    id          = GOLDEN_ANGLE
+    class       = CONSTANT
+    state       = EXECUTED
+    rad         = 2.399963229728653    # 2π/φ²
+    deg         = 137.5077640500378    # in degrees
+end
+
+
+# ============================================================================
+# BASE-4 CODEC GLYPH
+# ============================================================================
+#
+# The Omega node type maps to a DNA base by energetic affinity:
+#   TYPE_CPU      (type=1) → A (adenine,  purine,  high-energy)
+#   TYPE_MEM      (type=2) → C (cytosine, pyrimidine, structural)
+#   TYPE_IO       (type=3) → G (guanine,  purine,  bridging)
+#   TYPE_COMPILER (type=4) → T (thymine,  pyrimidine, templating)
+#   TYPE_RUNTIME  (type=5) → A (execution = energy)
+#   TYPE_PCI      (type=8) → derived: (vendor_id ⊕ device_id) mod 4 → base
+#   TYPE_STORAGE  (type=10)→ T (stable, static)
+#   All others            → C (structural by default)
+#
+# A codon is a triplet of consecutive Omega nodes in discovery order.
+# Codon index = (base[i]<<4 | base[i+1]<<2 | base[i+2]) — 64 possible codons.
+# A 4-mer index = (base[i]<<6 | base[i+1]<<4 | base[i+2]<<2 | base[i+3]) — 256.
+#
+# This is not metadata. It IS the encoding. The glyph rewrite engine
+# reads the Omega graph sequence and produces these values natively.
+#
+
+glyph base4_codec
+    parent      = root
+    id          = BASE4_CODEC
+    class       = CODEC
+    state       = INIT
+
+    # Type → base mapping (no hardcoded values — pure type-to-base bijection)
+    map_cpu      = BASE_A    # 0
+    map_mem      = BASE_C    # 1
+    map_io       = BASE_G    # 2
+    map_compiler = BASE_T    # 3
+    map_runtime  = BASE_A    # 0 (execution = energy = adenine)
+    map_storage  = BASE_T    # 3 (stable = thymine)
+    map_default  = BASE_C    # 1 (structural = cytosine)
+
+    # PCI devices: derived from PCI config space (no arbitrary assignment)
+    # pci_base = (vendor_id XOR device_id XOR class_code) mod 4
+    map_pci      = DERIVED_XOR_MOD4
+
+    rule encode
+        match       = state INIT
+        transform   = OMEGA_SEQUENCE_TO_BASE4
+        # Walk the Omega graph in discovery order (BFS from root).
+        # Each node: base = map[node.type] (or DERIVED for PCI).
+        # Output: base4_sequence[] of length n_nodes.
+        emit        = base4_sequence
+        advance     = DISCOVERED
+    end
+
+    rule compute_stats
+        match       = state DISCOVERED
+        transform   = BASE4_STATISTICS
+        # From base4_sequence[0..n_nodes-1]:
+        #   gc_content   = (count_G + count_C) / n_nodes
+        #   purine_ratio = (count_A + count_G) / n_nodes
+        #   at_ratio     = (count_A + count_T) / n_nodes
+        #   transition[4][4]: frequency of base[i]→base[i+1]
+        #   kmer_counts[256]: 4-mer frequencies
+        #   codon_counts[64]: 3-mer frequencies
+        #   shannon_entropy: -Σ p·log₂(p)  over base frequencies
+        emit        = { gc_content, purine_ratio, at_ratio,
+                        transition, kmer_counts, codon_counts,
+                        shannon_entropy }
+        advance     = CONFIGURED
+    end
+
+    rule derive_config
+        # ALL genome-derived configuration comes from here.
+        # No hardcoded values. Only mathematical relationships to stats.
+        match       = state CONFIGURED
+        transform   = DERIVE_GENOME_CONFIG
+        #
+        # points_per_tick = floor(phi_lattice_mean / √φ)
+        #   phi_lattice_mean: mean of 128 phi-lattice slots after consensus
+        #   Typical range: 100–600 (scales with Omega graph complexity)
+        #
+        # strand_count = clamp(n_nodes × gc_content, 8, 256)
+        #   GC-rich graph (many IO/compiler nodes) → more strands
+        #   AT-rich graph (CPU/storage dominant) → fewer strands
+        #   Must be power of 2 (for zchg_store compatibility)
+        #   clamp to nearest power of 2 in [8, 256]
+        #
+        # core_radius = Dn_aggregate_popcount × φ / 32
+        #   popcount of the Dₙ 32-bit aggregate: 0x80C0C0E8 → popcount=13
+        #   13 × φ / 32 ≈ 0.657  (natural units — no pixel assumptions)
+        #
+        # strand_sep = at_ratio × φ⁻¹
+        #   AT-rich (purine-dominant) → wider strand separation
+        #   Range: 0.0 → 0.618 (bounded by φ⁻¹)
+        #
+        # num_geometries = floor(compression_ratio × 8) + 1
+        #   compression_ratio = unique_4mers / 256
+        #   Range: 1–8 (matches DIMS = 8 strands)
+        #
+        # color_palette[64]: HSV from codon_counts
+        #   H = codon_index / 64 × 360°
+        #   S = 0.5 + (1 − freq/max_freq) × 0.5
+        #   V = 0.6 + gc_of_codon / 3 × 0.4
+        #
+        # geometry_dims[256]: from kmer_counts
+        #   dim = clamp(floor(log₂(count+1) + 1), 1, 8)
+        #
+        emit        = genome_config
+        advance     = EXECUTED
+    end
+
+end
+
+
+# ============================================================================
+# GENOME FABRIC GLYPH
+# ============================================================================
+#
+# This IS the fabric node. Each physical node in the zchg:// network
+# has exactly one genome_fabric glyph. It is the identity of that node
+# expressed as a living genome derived from its hardware.
+#
+# The glyph transform field tracks the current strand position.
+# Ωₙ₊₁ = T(Ωₙ) applies: each phi_tick advances the strand position
+# by golden_angle, modulated by the Kuramoto phase at that moment.
+#
+# zchg:// integration:
+#   strand_authority = bit i of Dₙ aggregate → strand A-H maps 1:1 to
+#   zchg strand routing. If Dₙ(r) > √φ, this node has authority for
+#   that strand. If below threshold: passive mirror only.
+#
+
+glyph genome_fabric
+    parent      = root
+    id          = GENOME_FABRIC
+    class       = FABRIC
+    state       = INIT
+    cap         = { OBSERVE, EMIT, ROUTE, MIRROR }
+
+    # Derived fields (populated by derive_config rule above)
+    # Listed here as declarations — values come from base4_codec.genome_config
+    points_per_tick = DERIVED
+    strand_count    = DERIVED
+    core_radius     = DERIVED
+    strand_sep      = DERIVED
+    num_geometries  = DERIVED
+    color_palette   = DERIVED    # palette[64] HSV
+    geometry_dims   = DERIVED    # dims[256]
+
+    # zchg strand authority mask (from Dₙ bitmask, verified aggregate 0x80C0C0E8)
+    dn_aggregate    = DERIVED    # 32-bit: bit n set ↔ Dₙ(r) > √φ
+    strand_auth     = DERIVED    # bits 0-7: authority over zchg strands A-H
+
+    rule observe
+        match       = state INIT
+        transform   = IMPORT_GENOME_CONFIG
+        # Pull genome_config from base4_codec (already EXECUTED)
+        # Pull dn_aggregate from hdgl_analog_engine (already computed at boot)
+        # Pull Kuramoto locked phases θ[8] from analog engine
+        emit        = { genome_config, dn_aggregate, theta_locked }
+        advance     = DISCOVERED
+    end
+
+    rule build_strand_auth
+        match       = state DISCOVERED
+        transform   = DN_BITMASK_TO_STRAND_AUTH
+        # strand_auth = (dn_aggregate >> (n*4)) & 0xFF for n=0..7
+        # Maps the 32-bit Dₙ aggregate to 8-bit strand authority mask.
+        # Authority strand i = 1 if Dₙᵢ > √φ, 0 otherwise.
+        # Registers this node with zchg_lattice as strand authority.
+        emit        = strand_auth
+        advance     = CONFIGURED
+    end
+
+    rule emit_tick
+        # The core loop: called once per phi_tick (wu-wei — shell poll IS the tick)
+        # Advances all strand positions by golden_angle × Kuramoto modulation.
+        # Produces points_per_tick new fabric points.
+        # Output is written directly to the output buffer — no intermediate alloc.
+        match       = state CONFIGURED
+        transform   = FABRIC_TICK
+        emit        = fabric_points      # stream of (x,y,z,h,s,v,dim,base,kmer)
+        advance     = READY
+    end
+
+    rule sync_remote
+        # Gossip integration: when a remote gossip frame arrives,
+        # incorporate the peer's strand_auth and dn_aggregate into
+        # local fabric decisions (strand weighting, fileswap routing).
+        match       = state READY
+        transform   = GOSSIP_INTEGRATE
+        # peer.dn_aggregate → update local strand weights (EMA α=0.3)
+        # peer.theta_locked → update Kuramoto sync (harmonic sync path)
+        emit        = updated_strand_weights
+        advance     = CONFIGURED   # wu-wei: loop back to emit_tick
+    end
+
+end
+
+
+# ============================================================================
+# FABRIC POINT GLYPH (one per emitted sample)
+# ============================================================================
+#
+# A fabric point IS a glyph. It is not a struct, not a C point, not a pixel.
+# Its identity derives from the Omega node it encodes.
+# Its position derives from the golden-angle spiral.
+# Its color derives from the codon palette.
+# Its dimension derives from the k-mer geometry table.
+#
+# The point is ephemeral — it exists for one tick, then becomes the input
+# to the next tick via the Ωₙ₊₁ = T(Ωₙ) recurrence.
+#
+
+glyph fabric_point
+    parent      = genome_fabric
+    id          = AUTO               # assigned per tick
+    class       = POINT
+    state       = INIT
+
+    # Position: (x, y, z) in phi-natural units
+    # x = r × cos(θ + dim × golden_angle + offset.x)
+    # y = r × sin(θ + dim × golden_angle + offset.y)
+    # z = sin(tick × φ⁻¹) × φ + (tick/points_per_tick) × 8
+    # where r = core_radius × (1 − progress^φ⁻¹)  (inward spiral)
+    #       progress = tick / n_nodes  (fraction of sequence traversed)
+    # No: screen pixels, window sizes, DPI, font sizes.
+    x           = DERIVED
+    y           = DERIVED
+    z           = DERIVED
+
+    # Color: HSV from codon palette (not RGB — device-independent)
+    color_h     = DERIVED    # from palette[codon_index].h
+    color_s     = DERIVED    # from palette[codon_index].s
+    color_v     = DERIVED    # from palette[codon_index].v
+
+    # Encoding metadata
+    dimension   = DERIVED    # from geometry_dims[kmer_index]
+    base        = DERIVED    # A/C/G/T = 0/1/2/3
+    kmer_index  = DERIVED    # 8-bit 4-mer index at this position
+    codon_index = DERIVED    # 6-bit 3-mer index
+    omega_id    = DERIVED    # identity of source Omega node
+
+    # Strand assignment: counter-strand offset by strand_sep
+    strand      = DERIVED    # 0 = primary, 1 = counter (−dim × golden_angle)
+end
+
+
+# ============================================================================
+# FABRIC CELL GLYPH (one per active node cluster)
+# ============================================================================
+#
+# A cell corresponds to one sub-graph of the Omega graph.
+# In the router context: one cell per active peer node.
+# Center offset = Kuramoto θᵢ × core_radius (distributes cells in space).
+# Division rule: when phi_lattice consensus tick delta exceeds √φ.
+#
+
+glyph fabric_cell
+    parent      = genome_fabric
+    id          = AUTO
+    class       = CELL
+    state       = INIT
+    cap         = { EMIT, DIVIDE, MERGE }
+
+    # Center offset in phi-natural units
+    # offset[0..2] = { θᵢ × r, θᵢ² × r, θᵢ³ × r } mod (2π × r)
+    # This distributes cells on the Kuramoto phase manifold.
+    center_offset   = DERIVED    # [x, y, z] from Kuramoto θᵢ
+
+    # Transition-matrix properties (8 values from 4×4 transition matrix)
+    # transition[row][col]: frequency of base[i]→base[i+1]
+    # Properties encode the structural DNA of this node's hardware profile.
+    dna_properties  = DERIVED    # [8] from transition[row][col]
+
+    rule divide
+        # Division: when consensus tick delta > √φ
+        # Produces one new fabric_cell with center_offset shifted by golden_angle
+        # New cell inherits dna_properties × φ⁻¹ (damped)
+        match       = phi_tick_delta > SQRT_PHI
+        transform   = CELL_DIVIDE
+        emit        = new_cell
+        advance     = CONFIGURED
+    end
+
+    rule merge
+        # Merge: when two cells' center_offsets differ by < φ⁻¹
+        # Merged cell has averaged dna_properties
+        match       = distance(self, peer) < PHI_INV
+        transform   = CELL_MERGE
+        emit        = merged_cell
+        advance     = CONFIGURED
+    end
+
+end
+
+
+# ============================================================================
+# NETWORK FABRIC GLYPH (cross-node integration)
+# ============================================================================
+#
+# One genome_network per zchg:// cluster.
+# Aggregates all peer genome_fabric glyphs via gossip.
+# The aggregate IS the "one OS" — a single Omega graph spanning nodes.
+# Each node's Dₙ aggregate participates in the cluster fingerprint.
+#
+
+glyph genome_network
+    parent      = root
+    id          = GENOME_NETWORK
+    class       = FABRIC
+    state       = INIT
+    cap         = { AGGREGATE, ROUTE, CONVERGE }
+
+    # Cluster state (from zchg_lattice gossip convergence)
+    cluster_fingerprint = DERIVED    # 32-bit from zchg_lattice_compute_fingerprint
+    peer_genomes        = DERIVED    # list of peer genome_fabric.dn_aggregate values
+    consensus_genome    = DERIVED    # EMA-averaged Dₙ across all peers
+
+    rule discover
+        match       = state INIT
+        transform   = GOSSIP_SCAN
+        # Listen for gossip frames. Each frame contains:
+        #   strand_weights[8], cluster_fingerprint, dn_aggregate (extension)
+        # Build peer_genomes[] from arriving gossip.
+        emit        = peer_genomes
+        advance     = DISCOVERED
+    end
+
+    rule converge
+        match       = state DISCOVERED
+        transform   = GENOME_EMA_FOLD
+        # consensus_genome[n] = EMA(α=0.3, peer_genomes[][n])
+        # When hamming_distance(local.dn_aggregate, consensus_genome) < 4:
+        #   cluster is genome-converged → APA_FLAG_CONSENSUS applies cross-node
+        emit        = consensus_genome
+        advance     = CONFIGURED
+    end
+
+    rule route
+        match       = state CONFIGURED
+        transform   = STRAND_ROUTE_BY_GENOME
+        # Route fabric_points to the peer whose dn_aggregate has authority
+        # for that point's strand (kmer_index mod 8 → strand A-H).
+        # This is zchg phi-tau routing extended with genome metadata.
+        advance     = READY
+    end
+
+end

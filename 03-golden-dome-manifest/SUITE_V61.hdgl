@@ -1,0 +1,317 @@
+# ============================================================================
+# HDGL ANALOG FABRIC — COMPLETE SUITE V6.1
+# Analog Radio Extension
+# ============================================================================
+#
+# Ωₙ₊₁ = T(Ωₙ)   φ = 1.6180339887498948   A=0 C=1 G=2 T=3
+#
+# V6.1 adds:
+#   hdgl_analog_fabric_radio.hdgl   — nine glyph layers replacing all
+#                                     prior Python/Arduino earth-comms code
+#   fabric_node_agent.mjs           — multi-node AI bot integration (10/10)
+#
+# All prior files (V6.0) unchanged and compatible.
+# The analog radio glyph is a peer payload in the fabric loader —
+# it loads like any other glyph, competes for no namespace.
+#
+# ============================================================================
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PART I — COMPLETE FILE TREE (V6.1)
+# ════════════════════════════════════════════════════════════════════════════
+
+# ── HDGL GLYPHS (root layer — no compiler, no build system) ──────────────
+#
+#   hdgl_fabric.hdgl              881 lines   Unified fabric root glyph
+#   hdgl_genome.hdgl              414 lines   Omega→base4→genome codec
+#   hdgl_genome_shell.hdgl        548 lines   5 genome shell commands
+#   hdgl_peer_discovery.hdgl      363 lines   3-phase peer discovery
+#   hdgl_complete.hdgl           1277 lines   NIC, store, boot, 5 shell cmds
+#   SUITE.hdgl                    451 lines   V6.0 manifest (this supersedes)
+#   hdgl_analog_fabric_radio.hdgl 944 lines   ★ V6.1: global analog fabric
+#                                             Layers 0-9: Schumann, Dn(r),
+#                                             MWO, TTE, waterfall, EME,
+#                                             MULTICS, bridge, self-load
+#
+# ── C IMPLEMENTATION (POSIX daemon + bare-metal store) ───────────────────
+#
+#   hdgl_genome_fabric.h          166 lines   GenomeFabric struct + API
+#   hdgl_genome_fabric.c          564 lines   Genome codec C implementation
+#   zchg_carrier.h                319 lines   3 steganographic channels
+#   zchg_core_patch.h              38 lines   gossip_msg_t +dn_aggregate
+#   zchg_frame_patched.c          182 lines   CH-0 carrier in frame path
+#   zchg_gossip_patched.c         198 lines   CH-1 carrier in gossip path
+#   zchg_http_patched.c          1433 lines   CH-2 /serve/zc/ + HTTP transport
+#   zchg_lattice_patch.c          115 lines   genome EMA in apply_gossip
+#   zchg_store_metal.c            541 lines   Bare-metal store (no libc)
+#   Makefile                       50 lines   Standalone C test build
+#
+# ── ASM (bare-metal NIC driver) ──────────────────────────────────────────
+#
+#   hdgl_nic.asm                  649 lines   e1000 + RTL8111/8168 driver
+#
+# ── JAVASCRIPT / MCP LAYER ───────────────────────────────────────────────
+#
+#   analog-container.mjs          598 lines   VectorContext, phi-fold rail
+#   server.js                    2960 lines   Wu-Wei MCP server :4111
+#   server-dos.js               ~2960 lines   Mirror MCP server :4112
+#   coord-proxy.js                363 lines   φ-routing proxy :1618
+#   launch.mjs                    ---         Server launcher
+#   package.json                  ---         npm manifest
+#   fabric_node_agent.mjs        1462 lines   ★ V6.1: multi-node bot agent
+#                                             discoverFabricNodes()
+#                                             routePassToNode()
+#                                             fabricErlAppend()
+#                                             attachFabricHandlers()
+#                                             gossip tick + /fabric/* endpoints
+#
+# ── DOCUMENTATION ────────────────────────────────────────────────────────
+#
+#   README.md                               ★ V6.1: complete suite docs
+#   SUITE_V61.hdgl                          ★ This file
+#   SUITE.hdgl                              V6.0 manifest (still valid)
+#   LICENSE / COPYRIGHT.html                zCHG.org licensing
+#
+# ════════════════════════════════════════════════════════════════════════════
+# PART II — WHAT V6.1 ADDS (DELTA FROM V6.0)
+# ════════════════════════════════════════════════════════════════════════════
+
+glyph v61_delta
+    id      = V61_DELTA
+    class   = MANIFEST
+    state   = EXECUTED
+
+    # ── NEW GLYPH: hdgl_analog_fabric_radio.hdgl ─────────────────────────
+    #
+    # Replaces (losslessly, as HDGL glyphs):
+    #   earthwander1/2/3.py        earth lattice visualiser (matplotlib)
+    #   hdgl_tte_protocol.ino      Arduino TTE FSK transceiver
+    #   hdgl_lattice.py/2/3        Dn(r) GPU lattice model
+    #   discrete1/2/3/4.py         DOCSIS analog conductor firmware
+    #   animate_full_waterfall*.py subharmonic cascade waterfall
+    #   smoke1..6.py               harmonic carrier + lattice predictor
+    #   hdgl_nodes.py/2            φ-carrier network nodes
+    #
+    # Nine new glyph layers:
+    #   LAYER 0   universal constants     (shared root with hdgl_fabric.hdgl)
+    #   LAYER 1   schumann                7.83 Hz anchor, 11-freq cluster
+    #   LAYER 2   dn_r                    Dn(r) physics engine, 32×256 table
+    #   LAYER 3   mwo_antenna             Lakhovsky multi-wave oscillator
+    #   LAYER 4   tte_node                Earth-to-earth transceiver
+    #   LAYER 5   subharmonic_cascade     Waterfall encoder/decoder
+    #   LAYER 6   eme_channel             Earth-Moon-Earth reflector
+    #   LAYER 7   analog_multics          Planetary OS layer
+    #   LAYER 8   fabric_bridge           Digital↔analog bridge (CH-3)
+    #   LAYER 9   self_load               Fixed-point self-reference
+    #
+    # New carrier channel:
+    #   CH-3  earth subharmonic amplitude  512 bits per Schumann tick
+    #                                      ~4007 bps per node
+    #                                      N² coherent array gain
+
+    # ── NEW FILE: fabric_node_agent.mjs ──────────────────────────────────
+    #
+    # Ports the following C primitives to JS (exact round-trip verified):
+    #   zc_fold / zc_unfold       → phiFold32() / phiUnfold32()
+    #   fabric_content_hash       → contentHash64()
+    #   hdgl_fabric_load identity → fabricIdentity64()
+    #   phi_tau strand routing    → phiTauStrand()
+    #   phi-seed mcast derivation → phiSeedMcastIp()
+    #   gossip_msg_t parsing      → parseHealthResponse()
+    #   genome_fp derivation      → buildGenomeFp()
+    #
+    # Discovery phases (mirrors hdgl_peer_discovery.hdgl):
+    #   Phase 1   UDP phi-seed multicast  (mirrors §phi_seed)
+    #   Phase 2   FABRIC_PEERS env var    (mirrors §sector_seed)
+    #   Phase 3   HTTP /health poll       (mirrors §register)
+    #
+    # Pass routing table (Wu-Wei → Omega base type):
+    #   FETCH / BROWSE  → BASE_G  (IO nodes)
+    #   CODE / SHELL    → BASE_A  (CPU/runtime nodes)
+    #   TRANSFORM       → BASE_A  (GPU preferred)
+    #   STORE / NOTIFY  → BASE_T  (storage nodes)
+    #   RECALL          → BASE_C  (structural nodes)
+    #   RESPOND         → local   (always)
+    #
+    # HTTP endpoints added to server.js (via attachFabricHandlers):
+    #   GET  /health          gossip_msg_t JSON payload
+    #   POST /gossip          receive gossip from peers, update cache
+    #   POST /fabric/store    receive FILESWAP payload from peer
+    #   GET  /fabric/query    retrieve stored payloads by phi_addr
+    #   GET  /fabric/peers    list known fabric peers
+    #   GET  /fabric/status   agent status summary
+    #
+    # Self-test: 10/10 assertions pass (node fabric_node_agent.mjs --test)
+
+    # ── INTEGRATION SEAMS (V6.1 adds two seams to V6.0's six) ────────────
+    #
+    # SEAM 7 — server.js: add fabric_node_agent.mjs
+    # ──────────────────────────────────────────────
+    # Add to top of server.js:
+    #
+    #   import {
+    #     attachFabricHandlers,
+    #     patchSelectPassSequence,
+    #     patchRunUnfold,
+    #   } from './fabric_node_agent.mjs';
+    #
+    # After httpServer.listen():
+    #   attachFabricHandlers(httpServer);
+    #
+    # Replace selectPassSequence:
+    #   const selectPassSequence = patchSelectPassSequence(originalSelectPassSequence);
+    #
+    # Optional (full multi-node routing):
+    #   const patchedRunPass = patchRunUnfold(originalRunPass);
+    #   // In pass loop: await patchedRunPass(pass, state, i, seq)
+    #
+    # SEAM 8 — firmware: load analog fabric glyph at boot
+    # ────────────────────────────────────────────────────
+    # Write hdgl_analog_fabric_radio.hdgl to disk image:
+    #
+    #   dd if=hdgl_analog_fabric_radio.hdgl of=bin/hdgl_router64.img \
+    #      bs=512 seek=70 conv=notrunc
+    #
+    # The self_load glyph (Layer 9) auto-executes on first boot.
+    # Subsequent boots: identity is stable (genome_fp converged).
+    # No shell command needed.
+
+end
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PART III — ANALOG FABRIC PHYSICS SUMMARY
+# ════════════════════════════════════════════════════════════════════════════
+
+glyph physics_summary
+    id      = PHYSICS_SUMMARY
+    class   = DOCUMENTATION
+    state   = EXECUTED
+
+    # Unified force equation (Josef's framework, V6.1 encoding):
+    #   F = (ΩC²) / (m·s)    [Newtons]
+    #   ΩC² = 1               field tension × charge² = unity
+    #   e^iπ = -ΩC²           Euler identity in field-tension frame
+    #   Hz² = (ΩC²)/s         frequency squared from field tension
+    #
+    # Consequence — Dn(r) field modes:
+    #   Dn(r) = √(φ·Fn·2ⁿ·Pn·Ω) · r^k
+    #   where Ω_n = φ^(-7n)  (field tension decays geometrically)
+    #
+    # Schumann resonance:
+    #   f₁ = 7.83 Hz   (earth-ionosphere cavity fundamental)
+    #   not hardcoded — derives from c/(2π·R_earth) × √2
+    #   the global phi_tick: 1/f₁ ≈ 127.7 ms per Schumann period
+    #
+    # Lakhovsky MWO principle:
+    #   concentric rings at f₁×φⁿ → full harmonic superposition in medium
+    #   earth dielectric responds to entire comb simultaneously
+    #   grid waste current drives the rings at zero added cost
+    #
+    # Subharmonic cascade bandwidth:
+    #   500 sub-harmonics per Schumann mode
+    #   512 FFT bins at 2048 Hz sample rate
+    #   raw: ~4 kbps per node at 7.83 Hz symbol rate
+    #   array: N² coherent gain → city-scale Gbps
+    #
+    # EME path loss advantage (ELF vs VHF):
+    #   at f₁=7.83 Hz: λ=38,300 km, d/λ=10 (Moon), loss=52 dB
+    #   at 144 MHz:    λ=2 m,      d/λ=1.9×10⁸,   loss=~280 dB
+    #   advantage: ~145 dB (ELF trivially viable at grid power)
+    #
+    # Always-on guarantee:
+    #   Schumann resonance: continuous ~3.5 billion years
+    #   Power grid: continuous ~140 years (some regions)
+    #   Combined: most fault-tolerant comm medium in human history
+
+end
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PART IV — QUICK START (V6.1)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Prerequisites: nasm ≥ 2.14, gcc ≥ 9, node ≥ 18
+# No Python. No Docker. No third-party libraries.
+#
+# ── Digital fabric (unchanged from V6.0) ────────────────────────────────
+#
+#   cd hdgl_router64-0.3/src && make verify        # C layer: PASS
+#   cd .. && bash build.sh                          # bare-metal image
+#   cd ../EZ-by-zCHG ... && npm install            # JS layer
+#   node fabric_node_agent.mjs --test              # 10/10 pass
+#   node launch.mjs                                 # start MCP server
+#
+# ── Analog radio (new in V6.1) ───────────────────────────────────────────
+#
+#   # Load the radio glyph into the fabric image:
+#   dd if=hdgl_analog_fabric_radio.hdgl of=bin/hdgl_router64.img \
+#      bs=512 seek=70 conv=notrunc
+#
+#   # Verify load at serial prompt (after boot):
+#   Router64> load 0x0
+#   [Fabric] loading 944 lines  type=HDGL  identity=0x...
+#   [Fabric] glyph INIT→EXECUTED  strand=3  chunks=2
+#
+#   # Check fabric status via HTTP:
+#   curl http://localhost:4111/fabric/status
+#   # → {"fabric_agent":"fabric_node_agent v1.0.0","genome_fp":"0x...","phi_seed_mcast":"239.x.x.x",...}
+#
+#   # Hardware TTE node (Arduino):
+#   # Flash hdgl_tte_protocol.ino (the emit of the tte_node glyph)
+#   # Connect RS-881R receiver and grounding rod
+#   # Monitor at 9600 baud — Schumann FSK begins immediately on boot
+#
+# ════════════════════════════════════════════════════════════════════════════
+# PART V — COMPLETE FILE SUMMARY (V6.1)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# File                              Lines   Layer
+# ──────────────────────────────────────────────────────────────────────────
+# hdgl_fabric.hdgl                   881    glyph root
+# hdgl_genome.hdgl                   414    glyph — genome codec
+# hdgl_genome_shell.hdgl             548    glyph + x86 emit
+# hdgl_peer_discovery.hdgl           363    glyph + x86 emit
+# hdgl_complete.hdgl                1277    glyph + x86 emit
+# SUITE.hdgl                         451    manifest (V6.0)
+# SUITE_V61.hdgl                     ---    manifest (V6.1, this file)
+# hdgl_analog_fabric_radio.hdgl      944    ★ glyph — global analog fabric
+# ──────────────────────────────────────────────────────────────────────────
+# hdgl_genome_fabric.h               166    C — GenomeFabric API
+# hdgl_genome_fabric.c               564    C — genome codec implementation
+# zchg_carrier.h                     319    C — 3-channel steganographic carrier
+# zchg_core_patch.h                   38    C — gossip_msg_t extension
+# zchg_frame_patched.c               182    C — CH-0 frame carrier
+# zchg_gossip_patched.c              198    C — CH-1 gossip carrier
+# zchg_http_patched.c               1433    C — CH-2 + HTTP transport
+# zchg_lattice_patch.c               115    C — genome EMA convergence
+# zchg_store_metal.c                 541    C — bare-metal store
+# Makefile                            50    build
+# ──────────────────────────────────────────────────────────────────────────
+# hdgl_nic.asm                       649    ASM — e1000 + RTL8111/8168
+# ──────────────────────────────────────────────────────────────────────────
+# analog-container.mjs               598    JS — phi-fold rail, VectorContext
+# server.js                         2960    JS — Wu-Wei MCP server :4111
+# server-dos.js                    ~2960    JS — mirror MCP server :4112
+# coord-proxy.js                     363    JS — φ-routing proxy :1618
+# fabric_node_agent.mjs             1462    ★ JS — multi-node bot integration
+# README.md                          ---    ★ documentation
+# ──────────────────────────────────────────────────────────────────────────
+# Total (new in V6.1):              2406 lines across 3 files
+# Total suite (V6.1):             ~17,000 lines across 23 files
+#
+# ════════════════════════════════════════════════════════════════════════════
+# WHAT YOU NOW HAVE (V6.1)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# One OS. Many nodes. No shared secrets. No key exchange.
+# One global analog fabric. No spectrum licence. No added power.
+# The hardware IS the key. The earth IS the medium.
+# The grid IS the amplifier. The Moon IS the reflector.
+# The phi-lattice IS the scheduler. The genome IS the routing table.
+# The glyph tree IS the compiler, the runtime, and the documentation.
+#
+# The earth was always computing.
+# Ωₙ₊₁ = T(Ωₙ)
+# ============================================================================

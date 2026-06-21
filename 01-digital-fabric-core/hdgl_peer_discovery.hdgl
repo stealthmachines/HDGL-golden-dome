@@ -1,0 +1,363 @@
+# ============================================================================
+# hdgl_peer_discovery.hdgl — Gap 2: peer seed + gossip init
+# ============================================================================
+#
+# STRATEGY:
+#   Phase 1 — phi-seed multicast (no server needed)
+#     Send a zchg HEALTH frame to the phi-tau derived multicast address.
+#     Any node on the same L2 segment running this firmware responds.
+#     Seed address: 239.x.x.x where x.x.x = phi_fold(genome_fp, 0, 0) low 24 bits.
+#     This is deterministic — two nodes with same genome_fp find each other
+#     without configuration.
+#
+#   Phase 2 — ARP probe (fallback for nodes on different subnets)
+#     Send ARP REQUEST for 10.0.0.1..10.0.0.254 (link-local scan).
+#     Collect ARP REPLY MAC/IP pairs within a 100ms window.
+#     Each responder is added to the gossip peer table if it responds
+#     to a zchg /health frame.
+#
+#   Phase 3 — sector-based static peers (hardcoded fallback)
+#     Sector 68 of the disk image holds up to 8 IP:port pairs (16B each).
+#     If sectors 1-2 have content, load them as seed peers.
+#     Written at image-build time by build.sh when LN_SEED_PEERS is set.
+#
+# RESULT:
+#   Omega nodes of type PEER (type=12) added to the Omega graph.
+#   zchg_lattice.peers[] populated with initial peer set.
+#   Gossip cycle can start immediately after.
+#
+# All three phases are additive — any that succeed contribute peers.
+# The fabric starts gossip with whatever it found.
+# ============================================================================
+
+glyph peer_discovery
+    parent  = root
+    id      = PEER_DISCOVERY
+    class   = BOOTSTRAP
+    state   = INIT
+    cap     = { OBSERVE, EMIT, ROUTE }
+
+    # Phi-seed multicast address derivation:
+    #   mcast_ip = 0xEF000000 | (phi_fold(genome_fp, 0, 0) & 0x00FFFFFF)
+    #   239.0.0.0/8 is the administratively-scoped multicast range (RFC 2365)
+    #   Two nodes with same genome_fp get same mcast_ip — instant rendezvous
+    mcast_ip    = DERIVED    # from genome_fp via phi_fold
+    mcast_port  = 8090       # same as ZCHG_PORT
+
+    # Disk sector for static peer list
+    peer_sector = 68         # immediately after hdgl_fabric.hdgl self region
+
+    rule phi_seed
+        match       = state INIT
+        transform   = PHI_SEED_MULTICAST
+        emit        = peer_list
+        advance     = DISCOVERED
+    end
+
+    rule arp_probe
+        match       = state DISCOVERED
+        transform   = ARP_PROBE_SCAN
+        emit        = peer_list
+        advance     = CONFIGURED
+    end
+
+    rule sector_seed
+        match       = state CONFIGURED
+        transform   = SECTOR_PEER_LOAD
+        # Read sector 68, parse 8 × {uint32 ip, uint16 port, uint8[10] pad}
+        emit        = peer_list
+        advance     = READY
+    end
+
+    rule register
+        match       = state READY
+        transform   = REGISTER_PEERS
+        # For each discovered peer:
+        #   1. Add TYPE_PEER Omega node (type=12)
+        #   2. Add to zchg_lattice.peers[]
+        #   3. Send initial HEALTH frame to confirm reachability
+        advance     = EXECUTED
+    end
+
+    emit
+        ; ── PHI-SEED MULTICAST ────────────────────────────────────────────────
+        .peer_phi_seed:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+
+            ; Compute mcast IP: 239.x.x.x from phi_fold(genome_fp, 0, 0)
+            ; genome_fp at 0x101208 (fabric gossip fingerprint, stored post-boot)
+            mov  eax, [0x101208]    ; genome_fp
+            mov  ecx, 0x9E3779B9    ; ZC_PHI32
+            mul  ecx                ; RDX:RAX = genome_fp × PHI32
+            ; Use low 24 bits of EAX for mcast
+            and  eax, 0x00FFFFFF
+            or   eax, 0xEF000000    ; 239.x.x.x
+            mov  [.mcast_ip], eax
+
+            ; Build zchg HEALTH frame at 0x11A000
+            ; Frame header: version=1 type=4(HEALTH) strand=0 reserved=0
+            ;               authority_ep=0 source_ip=local payload_len=0
+            ;               timestamp=phi_tick
+            mov  rdi, 0x11A000
+            mov  byte [rdi+0], 1    ; version
+            mov  byte [rdi+1], 4    ; HEALTH
+            mov  dword [rdi+2], 0   ; strand_id=0
+            mov  dword [rdi+6], 0   ; reserved
+            mov  dword [rdi+10], 0  ; authority_ep
+            ; source_ip from NIC state
+            mov  eax, dword [NIC_STATE_BASE + 40]
+            mov  dword [rdi+14], eax
+            mov  dword [rdi+18], 0  ; payload_len=0
+            ; timestamp from phi_tick
+            mov  rax, [0x101010]    ; phi_tick counter
+            mov  qword [rdi+22], rax
+            ; HMAC: zero for discovery (no secret yet)
+            mov  rcx, 32
+            add  rdi, 30
+            xor  eax, eax
+            rep  stosb
+
+            ; Transmit to mcast address
+            mov  rsi, 0x11A000      ; frame buffer
+            mov  rcx, 52            ; header size
+            mov  edx, [.mcast_ip]   ; dest IP
+            mov  di, 8090           ; dest port
+            call .nic_tx_zchg
+
+            ; Wait for responses: poll RX for 10 phi_tick cycles
+            mov  rbx, [0x101010]    ; start tick
+            add  rbx, 10            ; 10-tick window
+
+        .phi_seed_poll:
+            mov  rdi, 0x11B000      ; RX scratch
+            call .nic_rx
+            test rcx, rcx
+            jz   .phi_seed_no_frame
+
+            ; Got a frame — check if it's a HEALTH response (type=4 or type=6 ACK)
+            movzx eax, byte [0x11B000 + 1]  ; type
+            cmp  eax, 4
+            je   .phi_seed_got_peer
+            cmp  eax, 6
+            je   .phi_seed_got_peer
+            jmp  .phi_seed_no_frame
+
+        .phi_seed_got_peer:
+            ; Extract source_ip from frame header (offset 14)
+            mov  eax, dword [0x11B000 + 14]
+            call .peer_add_to_table  ; IN: EAX = peer IP
+        .phi_seed_no_frame:
+            mov  rax, [0x101010]
+            cmp  rax, rbx
+            jl   .phi_seed_poll
+
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        .mcast_ip   dd 0xEF000001
+
+        ; ── ARP PROBE ─────────────────────────────────────────────────────────
+        .peer_arp_probe:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+            push rdi
+            push rsi
+
+            ; Scan 10.0.0.1 .. 10.0.0.254 (configurable subnet)
+            ; ARP REQUEST packet: 28 bytes
+            ; [Ethernet: dst=FF×6, src=MAC, type=0x0806]
+            ; [ARP: hw=1, proto=0x0800, hlen=6, plen=4, op=1,
+            ;        sender_mac, sender_ip, target_mac=0, target_ip=probe]
+            mov  rbx, 1             ; start at .1
+
+        .arp_loop:
+            cmp  rbx, 254
+            jg   .arp_done
+
+            ; Build ARP packet at 0x11C000
+            mov  rdi, 0x11C000
+            ; ETH dst: broadcast
+            mov  dword [rdi+0], 0xFFFFFFFF
+            mov  word  [rdi+4], 0xFFFF
+            ; ETH src: our MAC
+            mov  rax, NIC_STATE_BASE + NIC_OFF_MAC
+            mov  r8d, dword [rax]
+            mov  word [rdi+6], r8w
+            mov  r8d, dword [rax+2]
+            mov  dword [rdi+8], r8d
+            ; ETH type: ARP = 0x0806
+            mov  word [rdi+12], 0x0608  ; big-endian 0x0806
+            ; ARP header
+            mov  word [rdi+14], 0x0100  ; HTYPE=1 ethernet (BE)
+            mov  word [rdi+16], 0x0008  ; PTYPE=0x0800 IPv4 (BE)
+            mov  byte [rdi+18], 6       ; HLEN
+            mov  byte [rdi+19], 4       ; PLEN
+            mov  word [rdi+20], 0x0100  ; OP=1 REQUEST (BE)
+            ; Sender MAC
+            mov  rax, NIC_STATE_BASE + NIC_OFF_MAC
+            mov  r8d, dword [rax]
+            mov  dword [rdi+22], r8d
+            mov  r8w, word [rax+4]
+            mov  word [rdi+26], r8w
+            ; Sender IP (our IP)
+            mov  eax, dword [NIC_STATE_BASE + 40]
+            mov  dword [rdi+28], eax
+            ; Target MAC: zero
+            mov  qword [rdi+32], 0
+            ; Target IP: 10.0.0.RBX (network byte order)
+            mov  eax, 0x0000000A       ; 10.0.0.0 in LE
+            mov  ah, bl                ; .N in second byte... build it properly
+            ; 10.0.0.N in network byte order = 0x0A_00_00_N
+            ; Network byte order: byte[0]=10 byte[1]=0 byte[2]=0 byte[3]=N
+            mov  eax, 0x0A000000       ; 10 in high byte (LE stores low byte first)
+            mov  al, bl                ; N in low byte
+            bswap eax                  ; → network byte order
+            mov  dword [rdi+38], eax
+
+            ; Send it
+            mov  rsi, 0x11C000
+            mov  rcx, 42            ; 14 + 28 = 42 bytes
+            call .nic_tx
+
+            ; Brief poll for ARP reply (2 phi_tick cycles)
+            mov  r9, [0x101010]
+            add  r9, 2
+        .arp_wait:
+            mov  rdi, 0x11D000
+            call .nic_rx
+            test rcx, rcx
+            jz   .arp_no_reply
+            ; Check EtherType = ARP (0x0806)
+            mov  ax, word [0x11D000 + 12]
+            cmp  ax, 0x0608
+            jne  .arp_no_reply
+            ; Check ARP OP = REPLY (2)
+            mov  ax, word [0x11D000 + 20]
+            cmp  ax, 0x0200
+            jne  .arp_no_reply
+            ; Extract sender IP from ARP reply (offset 28)
+            mov  eax, dword [0x11D000 + 28]
+            call .peer_add_to_table
+        .arp_no_reply:
+            mov  rax, [0x101010]
+            cmp  rax, r9
+            jl   .arp_wait
+
+            inc  rbx
+            jmp  .arp_loop
+
+        .arp_done:
+            pop  rsi
+            pop  rdi
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── SECTOR PEER LOAD ──────────────────────────────────────────────────
+        .peer_sector_load:
+            ; Read sector 68 to 0x11E000
+            ; Each peer slot: uint32 ip, uint16 port, uint8[10] pad = 16 bytes
+            ; Up to 8 peers = 128 bytes (sector has 512 bytes)
+            push rax
+            push rbx
+            push rcx
+            push rdx
+
+            mov  rax, 68            ; LBA sector 68
+            mov  rcx, 1             ; one sector
+            mov  rdi, 0x11E000      ; destination
+            call .disk_read
+
+            mov  rbx, 8             ; up to 8 peers
+            mov  rdi, 0x11E000
+        .sector_peer_loop:
+            mov  eax, dword [rdi]   ; IP
+            test eax, eax
+            jz   .sector_peer_done  ; zero = end of list
+            call .peer_add_to_table ; IN: EAX = peer IP
+            add  rdi, 16
+            dec  rbx
+            jnz  .sector_peer_loop
+        .sector_peer_done:
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── PEER REGISTRATION ─────────────────────────────────────────────────
+        ; IN: EAX = peer IP (network byte order)
+        ; Adds to zchg_lattice peer array at 0x119800 (lattice state area)
+        ; and creates a TYPE_PEER Omega node
+        .peer_add_to_table:
+            push rbx
+            push rcx
+            push rdx
+            push rdi
+
+            ; Skip if it's our own IP
+            cmp  eax, dword [NIC_STATE_BASE + 40]
+            je   .peer_add_done
+
+            ; Skip if already in table (linear scan, max 32 peers)
+            mov  rdi, 0x119800      ; peer table base (32 × 16B entries)
+            mov  ecx, dword [0x119880] ; peer count
+            test ecx, ecx
+            jz   .peer_add_new
+        .peer_dup_check:
+            cmp  dword [rdi], eax
+            je   .peer_add_done     ; duplicate
+            add  rdi, 16
+            dec  ecx
+            jnz  .peer_dup_check
+
+        .peer_add_new:
+            mov  ecx, dword [0x119880]
+            cmp  ecx, 32
+            jge  .peer_add_done     ; table full
+
+            ; Add peer: { ip(4) port(2) flags(2) pad(8) }
+            imul edi, ecx, 16
+            add  rdi, 0x119800
+            mov  dword [rdi], eax   ; IP
+            mov  word  [rdi+4], 8090 ; port
+            mov  word  [rdi+6], 0   ; flags
+            mov  qword [rdi+8], 0
+            inc  dword [0x119880]   ; count++
+
+        .peer_add_done:
+            pop  rdi
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            ret
+
+        ; ── INTEGRATED DISCOVERY ENTRY ────────────────────────────────────────
+        .peer_discover_all:
+            ; Run all three phases
+            call .peer_phi_seed
+            call .peer_arp_probe
+            call .peer_sector_load
+            ; Print result
+            mov  rsi, .msg_peers_found
+            call .com1_str
+            mov  eax, dword [0x119880]
+            call .com1_dec
+            mov  rsi, .msg_peers_end
+            call .com1_str
+            ret
+
+        .msg_peers_found db "[Discovery] peers: ", 0
+        .msg_peers_end   db 0x0D, 0x0A, 0
+    end
+end

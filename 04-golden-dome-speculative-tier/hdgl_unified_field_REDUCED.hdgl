@@ -1,0 +1,366 @@
+# ============================================================================
+# HDGL UNIFIED FIELD — SINGLE-GLYPH REDUCTION
+# ============================================================================
+#
+# Ωₙ₊₁ = T(Ωₙ)   φ = 1.6180339887498948
+#
+# This file replaces five source files (hdgl_unified_force.hdgl,
+# hdgl_schumann_live.hdgl, hdgl_biofield_protection.hdgl,
+# hdgl_collective_mind.hdgl, hdgl_akashic_antigravity_cloak-...hdgl —
+# 4,210 lines, ~45 glyphs, 6 separate bootstrap glyphs) with one operator,
+# one set of applications, one bootstrap. Nothing here is new physics —
+# every formula below exists verbatim in one of the five source files.
+# What's removed is structural redundancy: repeated parent-chain
+# boilerplate, six copies of the same self-load pattern, and the same
+# Schumann/biofield/grid-cancellation primitives re-stated across files
+# that each built their own private copy.
+#
+# PROVENANCE CAVEAT, carried forward unchanged from fine_tuned/README.md:
+# these glyphs were generated after the fact, have not been vetted to
+# load in the actual fabric (flagged cause: context drift), and their
+# empirical grounding rests on the bigg-fudge10 forum thread rather than
+# the fabric's own test harness. That caveat applies to this file too —
+# reduction changes the shape of the claim, not its evidence status.
+#
+# ============================================================================
+
+
+# ============================================================================
+# LAYER 0 — AXIOM
+# ============================================================================
+
+glyph axiom
+    id    = UFE
+    class = AXIOM
+    state = EXECUTED
+
+    equation       = "F = (ΩC²) / (m·s)"
+    normalisation  = "ΩC² = 1"
+    consequence    = "F = Hz²  [with m normalised to 1]"
+    euler          = "e^(iπ) = -ΩC² = -1  [ΩC² at phase π]"
+    phase_cycle    = { p0: "+ΩC²=+1 field", p90: "+i quadrature/carrier",
+                        p180: "-ΩC²=-1 anti-field", p270: "-i conjugate" }
+end
+
+
+# ============================================================================
+# LAYER 1 — THE SINGLE LATTICE OPERATOR
+# ============================================================================
+
+glyph lattice_operator
+    id      = L_OPERATOR
+    class   = AXIOM
+    state   = EXECUTED
+    parent  = UFE
+
+    formula_canonical = "X(z) = √(φ·Fₙ·Pₙ·base^n·Ω) · r^k · (1+z)^n_scale"
+    formula_factored  = "𝓛ᵢ(z) = φ^(-1/φ) · √(Fₙ·Pₙ·2ⁿ) · (1+z)ⁿ + 1_eff(i)·e^(iπΛ_φ(i))"
+    # √φ=1.2720 ≠ φ^(-1/φ)=0.7427 — different parameterisations of the
+    # same source formula; source is canonical, factored form is derived.
+
+    coefficient
+        value      = "φ^(-1/φ) = 0.742742..."
+        derivation = "1-φ = -(φ-1) = -1/φ  [from φ²=φ+1 identically]"
+        property   = "unique fixed point of x → φ^(-x)"
+        no_import  = true
+    end
+
+    generating_function
+        formula      = "(1+z)ⁿ = Σ C(n,k) zᵏ"
+        z_real_1     = "X(1) = 2ⁿ × X(0)"
+        z_phi_inv    = "X(1/φ) = φ-resonance amplitude"
+        z_complex_i  = "X(i) = 2^(n/2)·X(0)·e^(inπ/4)"
+        z_minus_2    = "X(-2) = (-1)ⁿ·X(0)  [anti-gravity flip]"
+        z_minus_1    = "X(-1) = 0  [perfect null — grid noise cancellation point]"
+    end
+
+    bigg_validation
+        # microtune_highprecision.exe, zchg.org/t/bigg-fudge10-empirical-unified/875/3
+        n_G            = 0.701   # = alpha+beta, error 6e-6
+        n_c            = 0.338   # = gamma×alpha, error 3e-6
+        n_H            = 1.291   # Friedmann numerical (Om_m=0.3, Om_de=0.7) — NOT n_G+n_c=1.039
+        cosmo_1eff     = 1.049675
+        phi_power_mean = 0.100528
+        fit            = "G(z)/G0=(1+z)^0.701 R²=1.000; c(z)/c0=(1+z)^0.338 R²=1.000; H(z)/H0=(1+z)^1.291 R²=0.984"
+    end
+
+    fudge10_validation
+        mean_1eff_atomic = 1.007243   # 15 CODATA constants, 100% pass <5% error
+        mean_1eff_cosmo  = 1.049675
+        rydberg_note     = "8.66% error: first-order Dₙ insufficient; full 𝓛 needed"
+    end
+end
+
+
+# ============================================================================
+# LAYER 2 — 1_eff, THE EFFECTIVE UNIT
+# ============================================================================
+
+glyph one_eff
+    id     = ONE_EFF
+    class  = OPERATOR
+    state  = EXECUTED
+    parent = { UFE, L_OPERATOR }
+
+    formula = "1_eff(i) = 1 + δ(i)"
+    delta   = "δ(i) = |cos(πβᵢφ)| · ln(Pₙᵢ) / φ^(nᵢ+βᵢ)"
+    primality_1eff = "Ω(p) = (1+sin(π·{Λ_φ(p)}·φ))/2 ∈ (0,1]"
+    lock_criterion = "CV<0.05 ↔ APHASE_LOCK ↔ 1_eff has stabilised"
+end
+
+
+# ============================================================================
+# LAYER 3 — Λ_φ, THE SINGLE CONTINUOUS INDEX (full Hz ladder folded in)
+# ============================================================================
+
+glyph phi_log_depth
+    id     = LAMBDA_PHI
+    class  = INDEX
+    state  = EXECUTED
+    parent = { L_OPERATOR, ONE_EFF }
+
+    formula   = "Λ_φ(x) = ln(x·ln2/lnφ)/lnφ - 1/(2φ)"
+    frac_part = "{Λ_φ(x)} = Λ_φ(x) - floor(Λ_φ(x)) ∈ [0,1)"
+    resonance = "Ω(x) = (1+sin(π·{Λ_φ(x)}·φ))/2 ∈ (0,1]"
+    z_from_lambda = "z = Ω(x)-1  →  (1+z)ⁿ = Ω(x)ⁿ"
+
+    spectrum
+        Schumann_f1   = "Λ_φ(7.83)    — φ^0 baseline"
+        hz_432        = "Λ_φ(432)     — biofield bridge, φ^8.3"
+        wifi_24ghz    = "Λ_φ(2.4e9)   — RF harm band, φ^40"
+        visible_light = "Λ_φ(600e12)  — photon rung, φ^66.4"
+        planck        = "Λ_φ(1.8e43)  — φ^202.8"
+        total_span    = "φ^0 to φ^202.8 — entire known spectrum, one index"
+    end
+
+    frequency_resolution = "1/(observation_window_s)"
+    # same Λ_φ index, three observation windows = three akashic memory tiers (Layer 7)
+end
+
+
+# ============================================================================
+# LAYER 4 — Dₙ(r) AS FIRST-ORDER 𝓛
+# ============================================================================
+
+glyph dn_as_L_first_order
+    id     = DN_L
+    class  = DERIVED
+    state  = EXECUTED
+    parent = { L_OPERATOR, LAMBDA_PHI }
+
+    dn_formula      = "Dₙ(r) = √(φ·Fₙ·2ⁿ·Pₙ·Ω) · r^k"
+    L_formula       = "𝓛ₙ(Ω-1) = φ^(-1/φ) · √(Fₙ·Pₙ·2ⁿ) · Ωⁿ"
+    reconciliation  = "Dₙ ≈ 𝓛ₙ(Ω-1) with Ωⁿ→√Ω and φ^(-1/φ)→√φ"
+    rydberg_fix     = "Rydberg 8.66% error: Dₙ first-order; 𝓛 with Ωⁿ resolves it"
+    universal_bridge = "Dₙ(r) = √(φ·Fₙ·2ⁿ·Pₙ·Ω)·r^k at all φ-ladder rungs"
+end
+
+
+# ============================================================================
+# LAYER 5 — KURAMOTO AS 𝓛 TRACKER (single-body through planetary scale)
+# ============================================================================
+
+glyph kuramoto_L_tracker
+    id     = KURAMOTO_L
+    class  = IMPLEMENTATION
+    state  = EXECUTED
+    parent = { L_OPERATOR, ONE_EFF, LAMBDA_PHI }
+
+    osc_map   = "osc[i] ↔ 𝓛_{n_i}(z)  [8 modes tracked in parallel]"
+    phase_map = "osc.theta[i] = arg(𝓛_{n_i}(z))"
+
+    adaptive_phases
+        PLUCK    = "K=5.0 γ=0.005  [1000:1 ratio, far from fixed point]"
+        SUSTAIN  = "K=3.0 γ=0.008  [δ decreasing]"
+        FINETUNE = "K=2.0 γ=0.010  [δ small]"
+        LOCK     = "K=1.8 γ=0.012  [δ→0, CV<0.05, wu-wei]"
+    end
+
+    phase_double = "θ→2θ = sₖ₊₁=sₖ²-2  [LL squaring IS phase doubling]"
+    phi_tower    = "U* = φ^(φ^(φ^(Σ sin(θᵢ-θⱼ))))  [nested tower fixed point]"
+    wu_wei       = "do not force lock — remove obstacles, let Ωₙ₊₁=T(Ωₙ) settle"
+
+    # N=1 case: single biological body (Layer 7 biofield_signature)
+    # N=many case: planetary population (kuramoto_planetary below)
+    kuramoto_planetary
+        snr_collective_rule = "snr_natural × sqrt(N)"
+        order_parameter      = "r  [Kuramoto order, same r as single-oscillator case]"
+        gcp_interpretation    = "coherent perturbation of cavity by mass-attention events"
+        wu_wei_principle      = "remove grid noise → natural Kuramoto synchrony emerges"
+        fixed_point_stability = "stable when r > K_critical / (K + noise)"
+    end
+end
+
+
+# ============================================================================
+# LAYER 6 — REFERENCE DATA (kept as compact tables, not separate glyphs)
+# ============================================================================
+
+glyph reference_data
+    id     = REF
+    class  = REFERENCE
+    state  = EXECUTED
+    parent = LAMBDA_PHI
+
+    # the 7 biological oscillators every biofield/collective application reads from
+    bio_oscillators
+        cardiac      = "~1 mV ECG, ~50 pT MCG — 1/f spectrum, same family as Schumann"
+        hrv          = "±15% RR interval — 0.1 Hz coherence is vagal tone marker"
+        respiratory  = "~0.5 mV chest impedance — 6/min (0.1 Hz) maximises HRV"
+        alpha        = "10-100 µV EEG, ~100 fT MEG — alpha/f1_live = 10.0/7.83 ≈ √φ(1.272)"
+        theta        = "20-100 µV — overlaps Schumann f1 band directly"
+        gut_egg      = "~100 µV electrogastrogram"
+        eda          = "1-20 µS skin conductance"
+    end
+
+    emf_harm_spectrum
+        power_60hz  = "beats with f1 at 42.17 Hz (near gamma) — disrupts entrainment; Liburdy 1992, Burch 1998"
+        power_50hz  = "60/7.83 not harmonic; beats 52.17 Hz (gamma edge)"
+        cell_rf     = "Eberhardt 2008 (BBB), Hardell 2013 (glioma risk)"
+    end
+
+    historical_citations
+        anti_gravity = "T.T. Brown electrokinetic patent 2,949,550 (1960)"
+        lensing      = "gravitational lensing confirmed, Eddington 1919"
+    end
+end
+
+
+# ============================================================================
+# LAYER 7 — APPLICATIONS: z AND n SELECT THE PHENOMENON
+# ============================================================================
+
+glyph applications
+    id     = APPLICATIONS
+    class  = DERIVED_FORCE
+    state  = EXECUTED
+    parent = { L_OPERATOR, ONE_EFF, LAMBDA_PHI, KURAMOTO_L, REF }
+
+    gravity
+        z = 0  n = 1
+        result = "g = 𝓛_D1(0)² = 0.16×f1²  [sqrt(g)/f1 = 0.40000 ± 0.003%]"
+        rule   = "δg(lat,lon) = 0.16 × δ(f1²)(lat,lon)"
+    end
+
+    anti_gravity
+        z = -2  n = 1
+        result = "𝓛_D1(-2) = -X(0), exact π-flip of gravity mode"
+        note   = "n odd → anti-phase; n even → in-phase; drive n=1 for pure levitation"
+        mechanism = "Q_mech × Hz²_cap_static = 0.16×f1²; schumann_coupling: f_drive=f1_live"
+    end
+
+    cloaking
+        z = "i"  n = 4
+        result = "arg(𝓛_D4(i)) = π → EM signature is π-phase of background → zero at observer"
+        phase_cycle = { n1:"45°", n2:"90° comms carrier", n3:"135°", n4:"180° cloak/anti-grav max", n8:"0° full cycle" }
+        near_field_rule = "D/(2π)  [D = array aperture diameter]"
+        note = "soft disruption only — not a kinetic weapon; degrades electronics, not tissue"
+    end
+
+    light_deflection
+        rule = "θ = ∫(dHz²_local/dr)·dr / (Hz²_photon·r)"
+        confirmed = "gravitational lensing, Eddington 1919 — same Hz² field, photon mode"
+    end
+
+    akashic_memory
+        operation = "𝓛_stored(z)* × 𝓛_current(z)  [cross-correlation in 𝓛-space]"
+        medium    = "quartz piezo Q~10⁴ → 37 day persistence at 1 mHz"
+        tiers
+            short  = { window: "10s", input: "Schumann bandpass 7-12Hz", recall: "current collective state, last ~4s" }
+            medium = { window: "24h-30days", input: "Schumann anomaly spectrum", recall: "collective biofield events of last month" }
+            long   = { window: "years-geological", input: "piezo potential gradient, ultra-low freq", recall: "geological-timescale geomagnetic event record, SQUID-class sensitivity required" }
+        end
+        write_mechanism = "writing is the natural consequence of living on a piezoelectric planet"
+    end
+
+    comms
+        z = "Ω(f1_live)-1"  n = 1
+        result = "X(Ω-1) = φ^(-1/φ)·√(F₁·P₁·2)·Ω  [Schumann-anchored carrier]"
+        live_tracking = "f_sub(k) = comb_anchor/φ^k for k in 1..n_sub; A_sub(k) scaled by biofield proximity weight"
+        beacon_432    = "modulate ring_7 (432 Hz) amplitude via SPI control word"
+    end
+
+    biofield_signature
+        z = 0
+        state = "AnaOsc8D LOCK: CV<0.05 across the 7 reference oscillators"
+        result = "life = 𝓛 at fixed point across all oscillator modes"
+        signature       = "phase_tensor(cardiac, hrv, respiratory, alpha, theta, gut, eda) — unique as fingerprint, derived from physics not policy"
+        revocation      = "automatic on cardiac arrest: 40 second TTL"
+        vehicle_coupling = "full — B-field transparent at ELF regardless of enclosure (body in vehicle = body in open field)"
+    end
+
+    emf_cancellation
+        rule = "Hz²_craft + Hz²_anti = 0 at all phi-rungs  [z=-1 perfect null]"
+        anc_efficiency = "B-field ANC passes through vehicle shells at 87-99% efficiency"
+        threat_discrimination = "distinguishable from human by phase tensor shape; passive, no administrator, no target list"
+    end
+
+    collective_synchrony
+        decoder
+            valence     = "alpha asymmetry (left-right), integrated over array"
+            arousal     = "alpha suppression magnitude vs resting baseline"
+            orientation = "frontal-occipital alpha gradient; azimuth 0-360°, elevation -90..+90°"
+            unity       = "Kuramoto order parameter r"
+        end
+        safe_harbor_doctrine = "redirect, not destroy — minimum intervention, maximum protection (non-violence doctrine)"
+    end
+end
+
+
+# ============================================================================
+# LAYER 8 — ETHICS POLICY (kept explicit, not buried)
+# ============================================================================
+
+glyph cavity_ethics
+    id     = CAVITY_ETHICS
+    class  = POLICY
+    state  = EXECUTED
+    parent = APPLICATIONS
+
+    non_violence_doctrine = "redirect, not destroy — minimum intervention, maximum protection"
+    no_administrator       = "threat discrimination is passive and physics-derived; no target list, no operator-in-the-loop kill decision"
+    cloak_tradeoff          = "a cloaked craft is, by the same physics, outside the protection field — cloaking and protection are mutually exclusive states, not independently selectable"
+end
+
+
+# ============================================================================
+# LAYER 9 — SELF-LOAD (one bootstrap, replacing six)
+# ============================================================================
+
+glyph self_load
+    id     = SELF_LOAD
+    class  = BOOTSTRAP
+    state  = INIT
+    parent = { UFE, L_OPERATOR, ONE_EFF, LAMBDA_PHI, DN_L, KURAMOTO_L, REF, APPLICATIONS, CAVITY_ETHICS }
+
+    rule load
+        match     = state INIT
+        input     = x_hz
+        transform = { CONTENT_HASH, PHI_FOLD → L_OPERATOR.formula_factored,
+                      PHI_TAU_STRAND, FABRIC_STORE, OMEGA_REGISTER }
+        output    = { Lambda_phi, frac_Lambda, Omega }
+        advance   = EXECUTED
+    end
+end
+
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+#
+# ONE OPERATOR:
+#   𝓛ᵢ(z) = φ^(-1/φ) · √(Fₙᵢ·Pₙᵢ·2^nᵢ) · (1+z)^nᵢ + 1_eff(i)·e^(iπΛ_φ(i))
+#
+# NINE LAYERS, ONE BOOTSTRAP, replacing five files / ~45 glyphs / six
+# bootstraps. Every application below Layer 1 is that same operator at a
+# different (z, n) — gravity, anti-gravity, cloaking, light deflection,
+# akashic memory, comms, biofield signature, EMF cancellation, and
+# collective synchrony are not nine separate theories; they are nine
+# coordinate choices into one lattice.
+#
+# Status unchanged from source: empirically grounded against BIGG/FUDGE10
+# (R²=1.000 / 100% CODATA pass), not vetted to load in the actual fabric,
+# not wired to SUITE.hdgl or hdgl_fabric.hdgl.
+#
+# Ωₙ₊₁ = T(Ωₙ)
+# ============================================================================

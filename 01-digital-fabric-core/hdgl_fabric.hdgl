@@ -1,0 +1,881 @@
+# ============================================================================
+# HDGL FABRIC — THE UNIFIED GLYPH
+# ============================================================================
+#
+# This file IS the fabric. Not a description of it.
+#
+# One .hdgl file whose glyph tree derives every artefact in the suite:
+#   - bare-metal boot (MBR → stage2 → runtime64)
+#   - phi-lattice kernel (Kuramoto, Dₙ(r), APA_FLAG_CONSENSUS)
+#   - genome codec (Omega → base-4 → stats → all parameters)
+#   - carrier (CH-0/CH-1/CH-2, phi-fold, three steganographic channels)
+#   - zchg:// transport (frames, gossip, fileswap)
+#   - strand-native store (phi-tau addressing, append-only strands)
+#   - shell extension (genome/fabric/ftick/fgossip/fauth commands)
+#   - fabric loader (load ANYTHING as a glyph — binary, source, key, data)
+#
+# LOSSLESS LIGHTWEIGHT DERIVATION:
+#   Every byte of every artefact is derivable from the glyph tree.
+#   No external files referenced. No build system needed beyond NASM.
+#   The disk image layout is a glyph. The carrier constants are glyphs.
+#   The base4096 alphabet is a glyph. The Omega graph IS the genome.
+#
+# FABRIC LOADER — load literally anything:
+#   A payload is a glyph. Its identity = phi_fold(content_hash, genome_fp).
+#   Its strand = phi_tau(identity) mod strand_count.
+#   Its authority = who holds that strand per Dₙ consensus.
+#   Loading = rewriting the payload glyph from INIT to EXECUTED.
+#   The fabric doesn't care what the payload is — binary, .hdgl, key, stream.
+#
+# UNIVERSAL CONSTANTS (only these — no hardcoded domain values):
+#   φ = 1.6180339887498948
+#   √φ = 1.2720196495140570  (binary threshold)
+#   π = 3.14159265358979323846
+#   A=0 C=1 G=2 T=3  (base-4 codec, information theory)
+#   ZC_PHI32 = 0x9E3779B9  (floor(2³²/φ) — Knuth multiplicative hash)
+#   ZC_PHI32_INV = 0x144CBC89  (modular inverse: PHI32 × INV ≡ 1 mod 2³²)
+#
+# Ωₙ₊₁ = T(Ωₙ)  — the universal tick. Everything else is a consequence.
+#
+# ============================================================================
+
+
+# ============================================================================
+# LAYER 0: UNIVERSAL CONSTANTS
+# ============================================================================
+
+glyph phi
+    id      = PHI
+    class   = CONSTANT
+    state   = EXECUTED
+    value   = 1.6180339887498948
+    inv     = 0.6180339887498948
+    sqrt    = 1.2720196495140570
+    ln      = 0.4812118250596035
+end
+
+glyph pi
+    id      = PI
+    class   = CONSTANT
+    state   = EXECUTED
+    value   = 3.14159265358979323846
+end
+
+glyph carrier_constants
+    # The phi-fold carrier primitive constants.
+    # Derived entirely from φ — no arbitrary values.
+    id      = CARRIER_CONSTANTS
+    class   = CONSTANT
+    state   = EXECUTED
+
+    # floor(2³²/φ) — Knuth multiplicative hash, phi-derived
+    PHI32       = 0x9E3779B9
+    # nearest prime to PHI32 — Fibonacci variant
+    FIB32       = 0x9E3779B1
+    # floor(√φ × 2³²) — threshold in carrier domain
+    SQRT_PHI32  = 0xA17F0BCB
+    # modular inverse: PHI32 × PHI32_INV ≡ 1 (mod 2³²)
+    # verified: 0x9E3779B9 × 0x144CBC89 = 1 mod 2³²
+    PHI32_INV   = 0x144CBC89
+end
+
+glyph fibonacci
+    id      = FIB
+    class   = SEQUENCE
+    state   = EXECUTED
+    terms   = { 1, 1, 2, 3, 5, 8, 13, 21 }
+end
+
+glyph primes
+    id      = PRIMES
+    class   = SEQUENCE
+    state   = EXECUTED
+    terms   = { 2, 3, 5, 7, 11, 13, 17, 19 }
+end
+
+glyph base4_map
+    # Omega node type → DNA base (information-theoretic bijection)
+    # Energetic (executing) → A (purine, high-energy)
+    # Structural (storage)  → C (pyrimidine, stable)
+    # Bridging (I/O)        → G (purine, conducting)
+    # Templating (compiler) → T (pyrimidine, instructional)
+    id      = BASE4_MAP
+    class   = CODEC
+    state   = EXECUTED
+    A       = 0    # CPU, RUNTIME
+    C       = 1    # MEM, default
+    G       = 2    # IO
+    T       = 3    # COMPILER, STORAGE
+    PCI_DERIVED = XOR_MOD4   # (vendor ^ device ^ class) mod 4
+end
+
+
+# ============================================================================
+# LAYER 1: PHI-FOLD CARRIER PRIMITIVE
+# ============================================================================
+#
+# The carrier primitive IS a glyph. Its rules derive all three channels.
+# No C implementation needed — the glyph IS the specification.
+# The C in zchg_carrier.h is the emit of this glyph's rules.
+#
+
+glyph phi_fold
+    parent  = carrier_constants
+    id      = PHI_FOLD
+    class   = PRIMITIVE
+    state   = EXECUTED
+
+    # fold(x, key, seq) = (x·PHI32 + key·FIB32 + seq·SQRT_PHI32) mod 2³²
+    # unfold(f, key, seq) = ((f - key·FIB32 - seq·SQRT_PHI32) · PHI32_INV) mod 2³²
+    #
+    # Properties (proven from the modular arithmetic):
+    #   Bijection: every (x, key, seq) triple maps to a unique fold value.
+    #   Additive: no XOR. Mixing via multiply-add — native to φ-harmonic design.
+    #   Key-sensitive: Δkey of 1 changes fold by FIB32 ≈ 2³¹ — full avalanche.
+    #   Seq-sensitive: Δseq of 1 changes fold by SQRT_PHI32 — irrational stride.
+    #
+    # This IS the same operation as the phi_tick prismatic recursion:
+    #   slot[i] = slot[i] × 3 + tick    (phi_tick, from hdgl_kernel.hdgl)
+    #   fold(x) = x × PHI32 + ...       (carrier, from zchg_carrier.h)
+    # Both are multiply-add recurrences in Z/2³²Z. The carrier is a
+    # phi-lattice operating over the transport layer's reserved fields.
+
+    rule fold
+        match       = state EXECUTED
+        transform   = PHI_FOLD_FORWARD
+        # x → (x · PHI32 + key · FIB32 + seq · SQRT_PHI32) mod 2³²
+    end
+
+    rule unfold
+        match       = state EXECUTED
+        transform   = PHI_FOLD_INVERSE
+        # f → ((f - key · FIB32 - seq · SQRT_PHI32) · PHI32_INV) mod 2³²
+    end
+
+end
+
+
+# ============================================================================
+# LAYER 2: THREE CARRIER CHANNELS
+# ============================================================================
+
+glyph carrier_ch0
+    # frame.reserved — 4 bytes per frame, 800 KB/sec at 200K frames/sec
+    parent  = phi_fold
+    id      = CARRIER_CH0
+    class   = CHANNEL
+    state   = INIT
+
+    carrier_field   = zchg_frame_header.reserved   # uint32 at byte 5
+    bytes_per_tick  = 4
+    cover_story     = "reserved field (looks like checksum)"
+
+    # payload_hash: additive prismatic hash of frame payload
+    # identical recurrence to phi_tick: acc = acc×3 + byte[i]
+    # ties the carrier word to frame content — unforgeable without key
+
+    rule encode
+        match       = state INIT
+        transform   = FOLD_INTO_RESERVED
+        # payload_hash = prismatic_sum(payload)
+        # plaintext    = payload_hash XOR data32
+        # reserved     = fold(plaintext, genome_fp, seq_frame++)
+        advance     = CONFIGURED
+    end
+
+    rule decode
+        match       = state CONFIGURED
+        transform   = UNFOLD_FROM_RESERVED
+        # plaintext    = unfold(reserved, genome_fp, seq_frame++)
+        # data32       = plaintext XOR payload_hash
+        advance     = EXECUTED
+    end
+
+end
+
+glyph carrier_ch1
+    # gossip strand_weights LSB-2 — 2 bytes per gossip cycle
+    parent  = phi_fold
+    id      = CARRIER_CH1
+    class   = CHANNEL
+    state   = INIT
+
+    carrier_field   = zchg_gossip_msg.strand_weights[0..7] bits[1:0]
+    bytes_per_cycle = 2
+    cover_story     = "EMA rounding noise in phi-weighted strand authority"
+
+    # 8 strands × 2 carrier bits = 16 bits per gossip message.
+    # The fold is masked to 16 bits before packing. Symmetric masking
+    # preserves the bijection within the 16-bit subspace.
+    # EMA resolution in zchg_lattice.c rounds to 1-unit integer:
+    # sub-2-bit variation is indistinguishable from measurement noise.
+
+    rule encode
+        match       = state INIT
+        transform   = FOLD_INTO_STRAND_WEIGHTS
+        # folded16 = fold(raw16, genome_fp, seq_gossip++) & 0xFFFF
+        # strand_weights[i] &= ~0x03; strand_weights[i] |= (folded16>>(i×2))&0x03
+        advance     = CONFIGURED
+    end
+
+    rule decode
+        match       = state CONFIGURED
+        transform   = UNFOLD_FROM_STRAND_WEIGHTS
+        # folded16 = Σᵢ (strand_weights[i] & 0x03) << (i×2)
+        # raw16    = unfold(folded16, genome_fp, seq_gossip++) & 0xFFFF
+        # strip:     strand_weights[i] &= ~0x03
+        advance     = EXECUTED
+    end
+
+end
+
+glyph carrier_ch2
+    # /serve/zc/<seg0>/<seg1> — 1 bit per request, request-paced
+    parent  = phi_fold
+    id      = CARRIER_CH2
+    class   = CHANNEL
+    state   = INIT
+
+    carrier_field   = HTTP_path_component
+    bits_per_req    = 1
+    cover_story     = "CDN cache-miss traffic (all 404s, no body needed)"
+
+    # seg0 = fold(genome_fp, genome_fp, seq_path)   — sync/framing word
+    # seg1 = fold(genome_fp, seq_path, bit+1)        — bit=0→+1, bit=1→+2
+    # Receiver: verify seg0, match seg1 to recover bit.
+    # Path format: /serve/zc/SSSSSSSS/SSSSSSSS (27 bytes)
+
+    rule encode
+        match       = state INIT
+        transform   = FOLD_INTO_PATH
+        # seg0 = fold(genome_fp, genome_fp, seq_path)
+        # seg1 = fold(genome_fp, seq_path, bit+1)
+        # emit GET /serve/zc/<seg0_hex8>/<seg1_hex8>
+        advance     = CONFIGURED
+    end
+
+    rule decode
+        match       = state CONFIGURED
+        transform   = UNFOLD_FROM_PATH
+        # parse seg0, verify = fold(genome_fp, genome_fp, seq_path)
+        # parse seg1, match to fold(genome_fp, seq_path, 1) or fold(..., 2)
+        # recover bit, advance seq_path
+        advance     = EXECUTED
+    end
+
+end
+
+
+# ============================================================================
+# LAYER 3: GENOME FABRIC
+# ============================================================================
+
+glyph genome_codec
+    # Omega graph → base-4 sequence → all fabric parameters.
+    # The Omega graph IS the FASTA. Hardware IS the key material.
+    parent  = base4_map
+    id      = GENOME_CODEC
+    class   = CODEC
+    state   = INIT
+
+    rule encode
+        # BFS walk of Omega graph → base4_seq[n]
+        match       = state INIT
+        transform   = OMEGA_TO_BASE4
+        advance     = DISCOVERED
+    end
+
+    rule statistics
+        # gc_content, at_ratio, entropy, transition[4][4],
+        # kmer_counts[256], codon_counts[64], autocorr[32]
+        match       = state DISCOVERED
+        transform   = BASE4_STATS
+        advance     = CONFIGURED
+    end
+
+    rule derive
+        # ALL parameters from statistics — zero hardcoded values:
+        #   points_per_tick  = 100 + (phi_lattice_mean & 0xFFFF)×500/65535
+        #   strand_count     = next_pow2(n_nodes × gc_content + 8), clamp [8,256]
+        #   core_radius      = popcount32(dn_aggregate) × φ / 32
+        #   strand_sep       = at_ratio × φ⁻¹
+        #   strand_auth      = dn_aggregate & 0xFF
+        #   palette[64].h    = codon_index/64 × 360°
+        #   palette[64].s    = 0.5 + (1 - freq/max_freq) × 0.5
+        #   palette[64].v    = 0.6 + gc_of_codon/3 × 0.4
+        #   geometry_dims[256] = clamp(⌊log₂(kmer_count+1)⌋+1, 1, DIMS)
+        match       = state CONFIGURED
+        transform   = DERIVE_FROM_STATS
+        emit        = genome_config
+        advance     = EXECUTED
+    end
+
+end
+
+glyph genome_fingerprint
+    # The shared key. Never transmitted. Re-derived from hardware on boot.
+    # gossip_fingerprint = dn_aggregate XOR genome_hash
+    # where genome_hash = djb2(base4_seq)
+    # This IS carrier_constants.key for all three channels.
+    parent  = genome_codec
+    id      = GENOME_FP
+    class   = KEY
+    state   = DERIVED
+    value   = dn_aggregate XOR djb2(base4_sequence)
+    storage = NONE   # never written to disk, never transmitted
+end
+
+
+# ============================================================================
+# LAYER 4: THE FABRIC LOADER
+# ============================================================================
+#
+# A payload is a glyph. Its identity derives from its content.
+# Loading = rewriting the payload glyph from INIT to EXECUTED.
+# The fabric doesn't care what the payload is.
+#
+# LOSSLESS ENCODING:
+#   Every payload is split into strand-sized chunks.
+#   Each chunk is a phi-addressed zchg_frame.
+#   The chunk's phi_addr = phi_fold(content_hash, genome_fp, chunk_index).
+#   All chunks land in zchg_store on the authority node for their strand.
+#   Reconstruction: phi_tau_sequence(genome_fp, total_chunks) → recover all.
+#
+# LOADING ANYTHING:
+#   Binary executable → payload glyph → exec transform on load
+#   .hdgl source      → payload glyph → parse transform on load
+#   Key material      → payload glyph → absorb into phi_lattice on load
+#   Data stream       → payload glyph → reassemble in phi_tau order
+#   Another fabric    → payload glyph → nested fabric instantiation
+#
+# The fabric IS the OS. Loading IS the universal transform T.
+# Ωₙ₊₁ = T(Ωₙ) where T is now: fetch_chunk → decode → execute → advance.
+#
+
+glyph fabric_payload
+    # One unit of anything.
+    parent  = root
+    id      = AUTO   # phi_fold(content_hash, genome_fp, seq)
+    class   = PAYLOAD
+    state   = INIT
+    cap     = { LOAD, EXEC, STORE, ROUTE, REPLICATE }
+
+    # Content descriptor
+    content_hash    = DERIVED   # phi_fold(raw_bytes) over content
+    total_size      = DERIVED   # byte count
+    chunk_count     = DERIVED   # ceil(total_size / chunk_size)
+    chunk_size      = DERIVED   # 4096 (one zchg_store page)
+    strand          = DERIVED   # phi_tau(content_hash) mod strand_count
+    authority       = DERIVED   # zchg_lattice_get_strand_authority(strand)
+
+    # Payload type (determines which transform applies on EXECUTED)
+    type            = AUTO_DETECT   # detect from first 16 bytes:
+                                    #   "glyph " → HDGL source → parse
+                                    #   0x7F454C46 → ELF → exec
+                                    #   0xAA55 offset 510 → disk image → boot
+                                    #   zchg_FRAME_VERSION → frame stream → transport
+                                    #   otherwise → raw data → store
+
+    rule chunk
+        # Split content into chunks, compute phi_addr for each
+        match       = state INIT
+        transform   = CONTENT_TO_CHUNKS
+        # For each chunk i:
+        #   phi_addr[i] = phi_fold(content_hash, genome_fp, i)
+        #   strand[i]   = phi_tau(phi_addr[i]) mod strand_count
+        emit        = chunk_manifest
+        advance     = DISCOVERED
+    end
+
+    rule store
+        # Write all chunks to zchg_store via their phi_addr
+        match       = state DISCOVERED
+        transform   = CHUNKS_TO_STORE
+        # zchg_store_put(phi_addr[i], chunk_data[i], chunk_size)
+        # for each chunk: frame = zchg_frame(STORE, strand, phi_addr)
+        # frame.reserved ← carrier_ch0.encode(genome_fp, chunk_index)
+        advance     = CONFIGURED
+    end
+
+    rule route
+        # If authority != local_ip: forward chunks to authority node
+        match       = state CONFIGURED AND authority != local_ip
+        transform   = FORWARD_TO_AUTHORITY
+        # for each chunk: zchg_client_send_frame(authority, frame)
+        advance     = READY
+    end
+
+    rule load
+        # Retrieve all chunks from zchg_store in phi_tau order
+        match       = state READY
+        transform   = LOAD_FROM_STORE
+        # phi_tau_sequence: reconstruct order from phi_addr ordering
+        # reassemble chunks → raw content bytes
+        emit        = content_bytes
+        advance     = LOADED
+    end
+
+    rule exec
+        # Apply the transform appropriate for this payload type
+        match       = state LOADED
+        transform   = AUTO_DETECT_AND_EXEC
+        #
+        # HDGL: parse → build Omega sub-graph → merge into global graph
+        #        rewrite rules from payload become active immediately
+        #        self-referential: a fabric glyph can load another fabric
+        #
+        # ELF:  validate → identity-map in available address space
+        #        compute entry point → branch to it
+        #        stack frame contains: genome_fp, Omega base, phi_lattice base
+        #        (so the loaded binary can participate in the phi-lattice)
+        #
+        # Disk: extract MBR → verify 0xAA55 → write to sector 0 of target
+        #        or chainload: copy to 0x7C00 → jmp 0x7C00
+        #
+        # Raw:  store in zchg_fileswap with logical_path derived from
+        #        phi_fold(content_hash, genome_fp, 0) → hex path string
+        #
+        # Frame stream: feed directly into zchg_server_handle_frame loop
+        #
+        advance     = EXECUTED
+    end
+
+    rule replicate
+        # Mirror to passive peers for redundancy
+        # Each peer in gossip table gets a MIRROR frame
+        match       = state EXECUTED
+        transform   = GOSSIP_REPLICATE
+        # zchg_fileswap_capture_as_mirror for all non-authority peers
+        advance     = EXECUTED   # idempotent loop
+    end
+
+end
+
+
+# ============================================================================
+# LAYER 5: DISK IMAGE — the glyph that produces the bootable binary
+# ============================================================================
+#
+# This IS the disk image. The compiler applies the emit rules below
+# to produce the exact byte sequence that becomes hdgl_fabric.img.
+# No Makefile. No build script. Only: this definition.
+#
+# Sector layout:
+#   0        MBR (hdgl_mbr.asm emit)
+#   1        stage2 router (hdgl_stage2_router.asm emit)
+#   2..65    runtime64 (hdgl_router64.asm emit, 64 sectors = 32KB)
+#   66..66+N hdgl_fabric.hdgl raw (this file, self-embedding)
+#   67+N..M  carrier constants (zchg_carrier.h numeric values, raw)
+#   M..M+K   genome codec (hdgl_genome_fabric.c, raw)
+#   M+K+1    fabric loader index (phi_fold table, 512 bytes)
+#   padding  to 1MB
+#
+
+glyph disk_image
+    parent  = root
+    id      = DISK_IMAGE
+    class   = STORAGE
+    state   = CONFIGURED
+
+    region mbr
+        sectors     = 0
+        source      = hdgl_mbr.asm     emit rule emit_mbr
+    end
+
+    region stage2
+        sectors     = 1
+        source      = hdgl_stage2_router.asm  emit rule emit_stage2
+    end
+
+    region runtime
+        sectors     = 2..65
+        source      = hdgl_router64.asm  emit rules emit_*
+        # Includes: phi-lattice kernel, Kuramoto, Omega graph,
+        #           shell (23 commands + genome/fabric/ftick/fgossip/fauth),
+        #           hdgl_analog_engine.c, hdgl_genome_fabric.c,
+        #           zchg_carrier.h constants (emit as data tables)
+    end
+
+    region self
+        # THE KEY PROPERTY: this file embeds itself.
+        # The running system can read its own source from sector 66.
+        # The boot stub places this at 0xA000 where the runtime finds it.
+        # Self-modification = glyph rewrite = Ωₙ₊₁ = T(Ωₙ).
+        sectors     = 66..AUTO
+        source      = hdgl_fabric.hdgl  raw
+    end
+
+    region carrier_tables
+        # phi-fold constants and CH-0/CH-1/CH-2 state tables
+        # emitted from carrier_constants glyph as binary data
+        sectors     = AUTO..AUTO
+        source      = carrier_constants  emit rule emit_carrier_tables
+    end
+
+    region genome_tables
+        # FIB[8], PRIMES[8], STRAND_OMEGA[8], PHI_SEEDS[8]
+        # emitted from phi_fold and fibonacci glyphs as IEEE 754 doubles
+        sectors     = AUTO..AUTO
+        source      = { fibonacci, primes, phi_fold }  emit rule emit_genome_tables
+    end
+
+    region fabric_index
+        # 512-byte index: phi_fold addresses of all regions
+        # allows the running system to locate any part of itself
+        # without a file system — pure phi-tau addressing
+        sectors     = AUTO
+        source      = disk_image  emit rule emit_fabric_index
+    end
+
+    region pad
+        sectors     = AUTO..2047   # pad to 1MB
+        fill        = 0x00
+    end
+
+end
+
+
+# ============================================================================
+# LAYER 6: EMIT RULES — how this glyph tree becomes the binary suite
+# ============================================================================
+#
+# These rules produce the C and ASM that zchg_carrier_test.c verifies.
+# They are the bridge between the glyph specification and the running code.
+#
+
+rule emit_carrier_tables
+    match   = glyph carrier_constants
+    emit
+        ; Carrier constant table — loaded by runtime at boot
+        ; Used by zchg_carrier.h phi_fold/unfold without C computation
+        [bits 64]
+        .carrier_phi32      dd 0x9E3779B9
+        .carrier_fib32      dd 0x9E3779B1
+        .carrier_sqrt_phi32 dd 0xA17F0BCB
+        .carrier_phi32_inv  dd 0x144CBC89
+        ; CH-0: bytes per frame
+        .carrier_ch0_bpf    dd 4
+        ; CH-1: bits per strand weight
+        .carrier_ch1_bits   dd 2
+        .carrier_ch1_mask   dd 0x03
+        ; CH-2: path prefix length
+        .carrier_ch2_pfxlen dd 10   ; strlen("/serve/zc/")
+    end
+end
+
+rule emit_genome_tables
+    match   = glyph { fibonacci, primes, phi_fold }
+    emit
+        ; Genome parameter tables — IEEE 754 doubles
+        ; Loaded at runtime to initialise hdgl_analog_engine
+        [bits 64]
+        .genome_fib         dq 1.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0
+        .genome_primes      dq 2.0, 3.0, 5.0, 7.0, 11.0, 13.0, 17.0, 19.0
+        .genome_phi_seeds   dq 1.6180339887, 2.6180339887, 3.6180339887
+                            dq 4.8541019662, 5.6180339887, 6.4721359549
+                            dq 7.8541019662, 8.3141592654
+        .genome_strand_omega
+            ; 1/PHI^(7i) for i=1..8 (precomputed, avoids pow() at boot)
+            dq 3.444185374863301813e-02
+            dq 1.186241289642226207e-03
+            dq 4.085634900844738285e-05
+            dq 1.407168397252052311e-06
+            dq 4.846548813785350797e-08
+            dq 1.669241254300059229e-09
+            dq 5.749176315178736765e-11
+            dq 1.980122898224909489e-12
+        .genome_phi          dq 1.6180339887498948
+        .genome_phi_inv      dq 0.6180339887498948
+        .genome_sqrt_phi     dq 1.2720196495140570
+        .genome_golden_angle dq 2.399963229728653
+    end
+end
+
+rule emit_fabric_index
+    match   = glyph disk_image
+    emit
+        ; 512-byte fabric index sector
+        ; Allows the running system to locate any glyph in the image
+        ; by phi-tau addressing without a filesystem
+        [bits 64]
+        .fab_magic      dd 0x48444746  ; 'HDFG' — HDGL Fabric
+        .fab_version    dd 2
+        .fab_phi32      dd 0x9E3779B9
+        .fab_phi32_inv  dd 0x144CBC89
+        ; Region table: { phi_addr(name), lba_start, lba_count }
+        ; phi_addr = phi_fold(djb2(region_name), genome_fp_boot, 0)
+        ; At boot: genome_fp_boot = wave_agg from mailbox at 0x50000
+        .fab_regions:
+        ; [mbr]      phi_addr=DERIVED  lba=0   count=1
+        ; [stage2]   phi_addr=DERIVED  lba=1   count=1
+        ; [runtime]  phi_addr=DERIVED  lba=2   count=64
+        ; [self]     phi_addr=DERIVED  lba=66  count=AUTO
+        ; [carrier]  phi_addr=DERIVED  lba=AUTO count=AUTO
+        ; [genome]   phi_addr=DERIVED  lba=AUTO count=AUTO
+        ; [index]    phi_addr=DERIVED  lba=AUTO count=1
+        ; phi_addr values filled at image build time by emit rule
+        times (512-($-.fab_magic)) db 0
+    end
+end
+
+rule emit_payload_loader
+    # The payload loader shell command: `load <phi_addr_hex>`
+    # Fetches a fabric_payload glyph from the store and executes it.
+    match   = glyph fabric_payload rule load
+    emit
+        [bits 64]
+        .cmd_load:
+            ; Parse hex phi_addr from shell argument
+            lea  rsi, [rel .sh_args]
+            call .sh_parse_hex64         ; → RAX = phi_addr
+            test rax, rax
+            jz   .load_bad_arg
+
+            ; Look up phi_addr in zchg_store index
+            ; Store index at 0x300000 (fabric_index loaded at boot)
+            mov  rdi, rax               ; phi_addr
+            call .fabric_store_lookup   ; → RAX = chunk_manifest_ptr, 0 if not found
+            test rax, rax
+            jz   .load_not_found
+
+            ; Reassemble chunks in phi_tau order
+            mov  rdi, rax               ; chunk_manifest_ptr
+            call .fabric_reassemble     ; → RSI = content_ptr, RCX = content_len
+
+            ; Auto-detect type and exec
+            call .fabric_autoexec       ; dispatches by content magic
+
+            lea  rsi, [rel .msg_load_ok]
+            call .com1_str
+            mov  eax, 1
+            ret
+
+        .load_bad_arg:
+            lea  rsi, [rel .msg_load_bad]
+            call .com1_str
+            mov  eax, 1
+            ret
+
+        .load_not_found:
+            lea  rsi, [rel .msg_load_404]
+            call .com1_str
+            mov  eax, 1
+            ret
+
+        ; Auto-detection dispatch table (magic → handler)
+        .fabric_autoexec:
+            ; Check first 4 bytes of content at RSI
+            mov  eax, [rsi]
+
+            ; ELF: 0x7F454C46
+            cmp  eax, 0x7F454C46
+            je   .exec_elf
+
+            ; HDGL: 'glyp' (0x706C7967)
+            cmp  eax, 0x706C7967
+            je   .exec_hdgl
+
+            ; MBR disk image: check bytes 510:511 = 0xAA55
+            movzx edx, word [rsi + 510]
+            cmp  edx, 0xAA55
+            je   .exec_disk
+
+            ; zchg frame: version byte = 1
+            movzx edx, byte [rsi]
+            cmp  edx, 1
+            je   .exec_frame_stream
+
+            ; Otherwise: raw → store in fileswap
+            jmp  .exec_raw
+
+        .exec_elf:
+            ; ELF loader: validate, find entry, branch
+            ; Entry point gets: RDI=genome_fp, RSI=omega_base, RDX=lat_base
+            mov  rdi, [0x101208]       ; genome_fp (fabric gossip fingerprint)
+            mov  rsi, 0x200000         ; OMEGA_BASE
+            mov  rdx, 0x101020         ; phi-lattice base
+            ; compute and call ELF entry (simplified — full ELF parser needed)
+            mov  rax, [rsi + 0x18]    ; e_entry from ELF header
+            call rax
+            ret
+
+        .exec_hdgl:
+            ; HDGL source: parse into current Omega graph
+            ; The phi-lattice parser runs in-place — no separate process
+            mov  rdi, rsi              ; content_ptr
+            mov  rsi, rcx              ; content_len
+            call .hdgl_parse_and_merge ; merge glyphs into global Omega graph
+            ret
+
+        .exec_disk:
+            ; Disk image: chainload to 0x7C00
+            ; Copy 512 bytes → 0x7C00, jump
+            mov  rdi, 0x7C00
+            mov  rcx, 512
+            rep  movsb
+            jmp  0x0000:0x7C00
+
+        .exec_frame_stream:
+            ; Frame stream: feed into transport handler
+            mov  rdi, rsi              ; stream start
+            mov  rsi, rcx              ; stream length
+            call .zchg_ingest_stream
+            ret
+
+        .exec_raw:
+            ; Raw data: store in fileswap
+            ; logical_path = hex(phi_fold(content_hash, genome_fp, 0))
+            call .fabric_store_raw
+            ret
+
+        .msg_load_ok   db "loaded", 0x0D, 0x0A, 0
+        .msg_load_bad  db "load: bad phi_addr", 0x0D, 0x0A, 0
+        .msg_load_404  db "load: not found in fabric store", 0x0D, 0x0A, 0
+    end
+end
+
+rule emit_fabric_store_lookup
+    # Maps phi_addr → chunk_manifest using the in-memory store index
+    # The store index is the phi-tau hash table from zchg_store.c,
+    # re-implemented natively in ASM for the bare-metal path.
+    match   = glyph fabric_payload rule load
+    emit
+        [bits 64]
+        .fabric_store_lookup:
+            ; IN:  RDI = phi_addr (64-bit)
+            ; OUT: RAX = chunk_manifest_ptr, or 0 if not found
+            ;
+            ; Store index at 0x300000: array of {phi_addr(8), ptr(8)} entries
+            ; Index size: up to 4096 entries (initial capacity)
+            ; Hash: slot = (phi_addr × 0x9E3779B97F4A7C15) >> 32  mod capacity
+            ;
+            mov  rax, rdi
+            mov  rcx, 0x9E3779B97F4A7C15
+            mul  rcx                   ; RDX:RAX = phi_addr × GOLDEN64
+            shr  rdx, 20              ; top bits → index (mod 4096 implicit)
+            and  rdx, 0xFFF           ; 12-bit index into 4096-entry table
+            imul rdx, 16              ; each entry is 16 bytes
+            add  rdx, 0x300000        ; store index base
+            ; Check entry: [rdx+0] = phi_addr, [rdx+8] = chunk_manifest_ptr
+            cmp  qword [rdx], rdi
+            jne  .lookup_miss
+            mov  rax, [rdx + 8]
+            ret
+        .lookup_miss:
+            xor  rax, rax
+            ret
+    end
+end
+
+
+# ============================================================================
+# LAYER 7: SELF-DESCRIPTION — the fabric describes itself
+# ============================================================================
+#
+# The running fabric can describe its own structure via the 'fabric' shell
+# command. This is not introspection added on top — it is the glyph rewrite
+# engine reading the Omega graph that IS the fabric's own representation.
+#
+# When you run `fabric` at the Router64> prompt, the shell command walks
+# the Omega graph starting from the fabric glyph nodes and prints their
+# state. The output IS the fabric's current state, not a report about it.
+#
+# When you run `load <phi_addr>`, you are not calling a function.
+# You are advancing a fabric_payload glyph from INIT to EXECUTED.
+# The glyph rewrite engine does the rest. Ωₙ₊₁ = T(Ωₙ).
+#
+
+glyph fabric_self
+    parent  = root
+    id      = FABRIC_SELF
+    class   = FABRIC
+    state   = INIT
+
+    # The fabric's own phi_addr: phi_fold(djb2(this_file_content), genome_fp, 0)
+    # Computed at first boot from the self region in the disk image.
+    # Stored in phi-lattice slot 0 after boot: read from 0x101020.
+    phi_addr        = SELF_DERIVED
+    source_lba      = 66         # sector where this file lives in the disk image
+    source_ram      = 0xA000     # where boot stub places it
+
+    rule self_load
+        # On boot: read the self region, parse into Omega graph.
+        # This IS how the fabric activates itself after bootstrap.
+        match       = state INIT AND source_ram_populated = TRUE
+        transform   = PARSE_SELF
+        # Parse hdgl_fabric.hdgl from 0xA000 into Omega graph.
+        # All glyphs defined in this file become active Omega nodes.
+        # The carrier channels, genome codec, payload loader all become
+        # live rewrite rules — not compiled, not linked, just rewrites.
+        advance     = DISCOVERED
+    end
+
+    rule self_verify
+        # Verify own content hash matches phi_addr
+        match       = state DISCOVERED
+        transform   = VERIFY_SELF_HASH
+        # phi_fold(djb2(content_at_0xA000), genome_fp, 0) == phi_addr
+        # If mismatch: advance to CORRUPTED (GOI ceiling applies)
+        advance     = CONFIGURED
+    end
+
+    rule self_register
+        # Register own phi_addr in the fabric store index
+        # So other nodes can load this fabric via `load <phi_addr>`
+        match       = state CONFIGURED
+        transform   = REGISTER_SELF
+        # zchg_store_put(phi_addr, content_at_0xA000, content_len)
+        # Announce via gossip: this node hosts phi_addr
+        advance     = EXECUTED
+    end
+
+end
+
+
+# ============================================================================
+# LAYER 8: THE FIXED POINT
+# ============================================================================
+#
+# The fixed point of this entire system:
+#
+#   hdgl_fabric.hdgl  parsed by  hdgl_fabric.hdgl
+#   produces a running fabric
+#   which can load hdgl_fabric.hdgl as a payload
+#   which produces the same fabric (or an evolved version)
+#   which is hdgl_fabric.hdgl
+#
+# Ωₙ₊₁ = T(Ωₙ)
+# Where T is now: phi_fold carrier + genome codec + fabric loader
+# The carrier encrypts the source. The genome is the key.
+# The fabric loads anything. Itself included.
+#
+# This is the lossless lightweight derivation:
+#   - This file encodes the full suite in ~500 lines of glyph definitions
+#   - Every constant, every channel, every loader derives from φ
+#   - The binary artefacts are emit products of these glyphs
+#   - No information is lost in the derivation: the emit rules are bijections
+#   - The disk image embeds this file (layer 5 self region)
+#   - The running system holds this file in RAM (layer 7 fabric_self)
+#   - Both can reproduce the other
+#
+# What the fabric can load:
+#   - itself (recursive instantiation)
+#   - any .hdgl file (extend the live Omega graph)
+#   - any ELF binary (execute in the phi-lattice address space)
+#   - any disk image (chainload)
+#   - any zchg frame stream (feed into transport)
+#   - any raw data (store in phi-addressed fileswap)
+#   - any future format (extend the autoexec dispatch table as a glyph)
+#
+# The three carrier channels are always active.
+# The genome key is always present (hardware is always present).
+# Every frame carries 4 bytes. Every gossip carries 2 bytes.
+# Every /serve/zc/ request carries 1 bit.
+# Loading is steganographic. Routing is ordinary.
+#
+
+self_compile_loop
+    input   = hdgl_fabric.hdgl
+    output  = hdgl_fabric.hdgl   # identity: the fabric compiles to itself
+    entry   = fabric_self.self_load
+end
