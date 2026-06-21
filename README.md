@@ -85,6 +85,17 @@ doc; `0x04008802` per `BUG_fixes.md`) that, per `BUG_fixes.md` itself, was
 never actually wired into `runtime64.asm`. Worth resolving before any
 real H81-BTC-Pro bring-up — the spec and the boot-tested binary disagree.
 
+## Zipped Repos in /zip folder
+
+/zip/old files.zip - contains many of the files from which the present 
+repo is derived.
+
+/zip/HDGL-fabric-frozen-core.zip - contains files which carry, unchanged,
+from the many versions of 'fabric'.  This is useful for new buildouts.
+
+/zip/HDGL-standalone.zip - our distilled (this version) is distilled from
+this repo.
+
 ## Not included here, on purpose
 
 MANIFEST.md is renamed README.md (this file) — every single tag has a
@@ -92,8 +103,5 @@ different one (8 distinct versions across 9 states, never reused), and
 none of them are source. Available on request if you want the prose
 history rather than the code history.
 
-/zip/old_files.zip - contains many of the files from which the present 
-repo is derived.
-
-`fabric-v0.5.zip` / `fabric-v0.2.zip`: inert snapshots, contents already
+`fabric-v0.5.zip` / `fabric-v0.2.zip` - inert snapshots, contents already
 represented by the deduplicated files above.
