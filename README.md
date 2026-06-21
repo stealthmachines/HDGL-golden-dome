@@ -92,5 +92,8 @@ different one (8 distinct versions across 9 states, never reused), and
 none of them are source. Available on request if you want the prose
 history rather than the code history.
 
+/zip/old_files.zip - contains many of the files from which the present 
+repo is derived.
+
 `fabric-v0.5.zip` / `fabric-v0.2.zip`: inert snapshots, contents already
 represented by the deduplicated files above.
