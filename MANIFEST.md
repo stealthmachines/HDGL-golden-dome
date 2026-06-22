@@ -1,4 +1,8 @@
-# HDGL — Stand-Alone Source Tree (deduplicated, v0.1 → golden-dome)
+# Manifest
+
+note to self - this readme as manifest is slightly out of date, it is a copy of the previous version's, that's why.
+
+# HDGL — Stand-Alone Source Tree (deduplicated, v0.2 → golden-dome)
 
 42 files, one copy of each, organized by what they actually are rather
 than which tag they happened to ship in. Built from byte-level (md5)
@@ -151,13 +155,10 @@ across both repos.
 `old files/` (the legacy archive — SQL store, NGINX store, the original
 larger Router64 kernel, DNA ENGINE V3, the EZ-by-zCHG MCP predecessor):
 confirmed identical across every tag, so it isn't duplicated here. It's
-documented in the prior turn of this conversation rather than re-shipped
+documented in the prior versions rather than re-shipped
 as another zip-of-zips.
 
-`README.md` per tag: deliberately excluded — every single tag has a
+README.md - Every folder has a
 different one (8 distinct versions across 9 states, never reused), and
 none of them are source. Available on request if you want the prose
 history rather than the code history.
-
-`fabric-v0.5.zip` / `fabric-v0.2.zip`: inert snapshots, contents already
-represented by the deduplicated files above.
