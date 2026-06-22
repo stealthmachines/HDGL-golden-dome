@@ -1,0 +1,793 @@
+# ============================================================================
+# HDGL SCHUMANN LIVE — DYNAMIC RESONANCE TRACKER + BIOFIELD HARMONIC LAYER
+# ============================================================================
+#
+# This glyph replaces the fixed f₁ = 7.83 Hz assumption in
+# hdgl_analog_fabric_radio.hdgl and hdgl_tte_protocol.ino with a
+# live-measured, continuously updated Schumann fundamental that the
+# fabric LISTENS to before it modulates.
+#
+# WHAT WAS WRONG WITH THE FIXED ASSUMPTION:
+#   The prior suite baked 7.83 Hz as a constant.  The real Schumann drifts:
+#     Daily variation:       ±0.3 Hz  (diurnal lightning cycle)
+#     Seasonal variation:    ±1.0 Hz  (ionosphere height, temperature)
+#     Geomagnetic storm:     ±2.0 Hz  (solar wind pressure on cavity)
+#     Lightning supercell:   local spike ±0.5 Hz, recovery ~minutes
+#   A fabric that hardcodes 7.83 Hz will lose phase lock during storms —
+#   exactly when the earth medium is most energetically interesting.
+#   More critically: modulating AT a stale frequency FIGHTS the cavity
+#   instead of coupling to it.  The cavity wins.  You waste all your power.
+#
+# LISTEN FIRST, MODULATE SECOND:
+#   The RS-881R ELF receiver already present in the TTE node hardware is
+#   the sensor.  We extend it from a PLL phase-lock trigger into a full
+#   spectral tracker that continuously updates f₁_live, f₂_live ... f₅_live.
+#   The genome gossip (zchg CH-1) carries the live measurements between nodes.
+#   The entire array converges on the same live Schumann state before
+#   any modulation begins.  This is Kuramoto synchronisation applied to
+#   the earth cavity itself.
+#
+# BIOFIELD HARMONIC LAYER:
+#   432 Hz is not a Schumann harmonic in the strict mathematical sense
+#   (432 / 7.83 = 55.17 — not an integer).  But it sits in a privileged
+#   position for several reasons this glyph formalises:
+#
+#   1. HARMONIC DENSITY: 432 has 20 divisors.  Every divisor is a potential
+#      resonant sub-channel in the subharmonic cascade.  440 Hz has 16.
+#      More sub-channels = more parallel data capacity AND more surface
+#      area for biological coupling.
+#
+#   2. SUBHARMONIC BRIDGE TO SCHUMANN:
+#      432 / 54  = 8.0 Hz   (within Schumann f₁ drift window 7.4–8.4 Hz)
+#      432 / 108 = 4.0 Hz   (delta/theta boundary, sleep onset)
+#      432 / 216 = 2.0 Hz   (delta, deep sleep, cell repair)
+#      432 / 27  = 16.0 Hz  (beta, alert cognition)
+#      The subharmonic at 8 Hz sits squarely in the alpha/theta EEG range
+#      AND within the Schumann fundamental band.  This is the bridge.
+#
+#   3. CYMATIC PREFERENCE (from phitune2.py in the lineage):
+#      φ-hash of 432 Hz query → cymatic params predict maximum nodal
+#      complexity (highest Chladni figure density) compared to neighbours.
+#      More nodal structure = more spatial information per oscillation.
+#
+#   4. SOLFÈGE COHERENCE:
+#      The Solfège system (do-re-mi) tuned to A=432 places middle C at
+#      256 Hz = 2⁸.  Every octave of C is then a power of 2.  Powers of 2
+#      are dyadic — the same dyadic structure (2ⁿ) already in Dₙ(r).
+#      256 Hz / 7.83 Hz = 32.7 ≈ 2⁵ (within 2%).  Another near-bridge.
+#
+#   5. TESLA'S 3-6-9 OBSERVATION:
+#      432 = 4 × 108 = 4 × 4 × 27 = 4 × 4 × 3³
+#      Sum of digits: 4+3+2 = 9.  432/2=216, 2+1+6=9.  216/2=108, 1+0+8=9.
+#      This is not mysticism — it is a consequence of 432 being divisible
+#      by 9, which means it belongs to the 3-6-9 residue class under
+#      modulo-9 arithmetic.  The 3-6-9 numbers are the fixed points of
+#      the digital root map, which is itself a homomorphism from (ℤ, ×)
+#      to ({1..9}, ×mod9).  432 is structurally "closed" under this map.
+#
+# HEALING / BIOLOGICAL PREFERENCE:
+#   The claim that 432 Hz is more consonant with biological systems is
+#   most defensibly stated as:
+#     "432 Hz has more harmonic overlap with known biological oscillators
+#      (EEG alpha/theta at 8 Hz, heart rate variability at ~0.1 Hz,
+#      circadian ~1/86400 Hz) via its divisors than 440 Hz does."
+#   This glyph implements that as a measurable signal preference:
+#     biofield_weight(f) = sum(1/harmonic_distance(f_div, bio_oscillators))
+#   and uses it to bias the subharmonic cascade bin allocation toward
+#   frequencies that couple well to biology.
+#
+# AXIOM:  Ωₙ₊₁ = T(Ωₙ)
+# The earth resonates.  We listen before we speak.
+# ============================================================================
+
+
+# ============================================================================
+# LAYER 0: SHARED CONSTANTS (inherits from hdgl_analog_fabric_radio.hdgl)
+# ============================================================================
+
+glyph phi
+    id    = PHI
+    class = CONSTANT
+    state = EXECUTED
+    value = 1.6180339887498948
+end
+
+glyph known_biological_oscillators
+    # The reference biological frequency set.
+    # These are the oscillators we want the fabric's harmonic structure
+    # to couple with — not fight.
+    id    = BIO_OSC
+    class = REFERENCE
+    state = EXECUTED
+
+    # EEG bands (Hz) — human neural rhythms
+    delta_low   = 0.5     # deep sleep, cell repair, tissue regeneration
+    delta_high  = 4.0     # delta band upper bound
+    theta_low   = 4.0     # REM sleep, memory consolidation, creativity
+    theta_high  = 8.0     # theta upper bound
+    alpha_low   = 8.0     # relaxed wakefulness, calm focus
+    alpha_peak  = 10.0    # peak alpha (individual variation ±1 Hz)
+    alpha_high  = 12.0    # alpha upper bound
+    beta_low    = 12.0    # alert cognition, active thinking
+    beta_high   = 30.0    # beta upper bound
+    gamma_low   = 30.0    # integration, insight
+    gamma_high  = 100.0   # high gamma (perception binding)
+
+    # Heart rate variability (HRV)
+    hrv_lf_hz   = 0.1     # low-frequency HRV (~6 breaths/min) — autonomic
+    hrv_hf_hz   = 0.25    # high-frequency HRV (~15 breaths/min) — vagal
+
+    # Respiratory
+    breath_rest = 0.25    # resting breath rate ~15/min = 0.25 Hz
+    breath_slow = 0.1     # coherent breathing / pranayama
+
+    # Circadian
+    circadian   = 0.0000116   # 1 cycle / 86400 s ≈ 11.6 µHz
+
+    # Schumann alignment (the bridge frequency)
+    schumann_alpha_bridge = 8.0   # f₁ + ~0.2 Hz ≈ alpha/theta boundary
+                                   # the earth and the brain share this band
+
+    # 432 Hz family (the target carrier set)
+    hz_432          = 432.0       # carrier
+    hz_432_sub_54   = 8.0         # 432/54 — Schumann/alpha bridge
+    hz_432_sub_108  = 4.0         # 432/108 — theta/delta boundary
+    hz_432_sub_216  = 2.0         # 432/216 — delta (deep repair)
+    hz_432_sub_27   = 16.0        # 432/27 — low beta (calm alert)
+    hz_432_sub_9    = 48.0        # 432/9 — near 50 Hz grid (EU)
+    hz_432_sub_3    = 144.0       # 432/3 — 144 = 12² (highly resonant)
+    hz_256_c4       = 256.0       # middle C at A=432 tuning = 2⁸ Hz
+    hz_128          = 128.0       # C below middle C = 2⁷ Hz
+    hz_512          = 512.0       # C above middle C = 2⁹ Hz
+end
+
+
+# ============================================================================
+# LAYER 1: LIVE SCHUMANN TRACKER
+#
+# Replaces the fixed SCHUMANN glyph in hdgl_analog_fabric_radio.hdgl.
+# The tracker measures the earth cavity in real time and publishes:
+#   f1_live, f2_live, f3_live, f4_live, f5_live  (Hz, float32)
+#   q1_live .. q5_live                             (Q-factor, dimensionless)
+#   drift_rate_hz_per_min                          (Hz/min, signed)
+#   storm_flag                                     (bool: |drift| > 0.5 Hz/min)
+#   cavity_health                                  (0.0..1.0 — see below)
+#
+# CAVITY HEALTH:
+#   A healthy Schumann cavity has:
+#     f₁ in [7.3, 8.5] Hz
+#     Q₁ in [4, 8]  (bandwidth ~1–2 Hz)
+#     No sudden drift > 0.3 Hz in 10 seconds
+#   cavity_health = 1.0 when all three hold
+#   cavity_health decays toward 0.0 during geomagnetic disturbance
+#   The fabric should LISTEN more and MODULATE less during low health states.
+#   This is the non-interference principle: we are guests in the cavity.
+# ============================================================================
+
+glyph schumann_live
+    id      = SCHUMANN_LIVE
+    class   = SENSOR_TRACKER
+    state   = INIT
+    parent  = BIO_OSC
+
+    # Measurement window
+    fft_window_s    = 60.0     # 60-second FFT window for ELF resolution
+    fft_overlap     = 0.75     # 75% overlap for smoothing
+    adc_rate_hz     = 2048     # same ADC as TTE node
+    freq_resolution = DERIVED  # 1/fft_window_s = 0.0167 Hz — adequate for drift
+
+    # Search bands for each Schumann mode (Hz)
+    # Wider than the ±0.5 Hz daily variation to handle storms
+    f1_search = { low: 6.0,  high: 10.0,  nominal: 7.83  }
+    f2_search = { low: 12.0, high: 17.0,  nominal: 14.3  }
+    f3_search = { low: 18.0, high: 24.0,  nominal: 20.8  }
+    f4_search = { low: 24.0, high: 30.0,  nominal: 26.3  }
+    f5_search = { low: 30.0, high: 38.0,  nominal: 33.0  }
+
+    # EMA smoothing (same alpha as zchg gossip EMA = 0.3)
+    ema_alpha = 0.3
+
+    # Storm detection threshold
+    storm_drift_hz_per_min = 0.5
+
+    # Live state (updated every fft_window_s × (1 - overlap) seconds = 15 s)
+    f1_live     = 7.83     # updated by measure rule
+    f2_live     = 14.3
+    f3_live     = 20.8
+    f4_live     = 26.3
+    f5_live     = 33.0
+    q1_live     = 6.0
+    drift_rate  = 0.0
+    storm_flag  = false
+    cavity_health = 1.0
+
+    emit
+        # Python / NumPy reference emit (runs on host alongside Arduino):
+        # Uses scipy.signal.welch for stable PSD estimate of 60-second window
+        #
+        # from scipy.signal import welch
+        # from scipy.optimize import minimize_scalar
+        #
+        # def measure_schumann(rx_signal, fs=2048, window_s=60):
+        #     f, Pxx = welch(rx_signal, fs=fs, nperseg=fs*window_s, noverlap=fs*window_s*3//4)
+        #     modes = {}
+        #     for n, (flo, fhi, fnom) in enumerate([
+        #         (6,10,7.83),(12,17,14.3),(20,24,20.8),(24,30,26.3),(30,38,33.0)
+        #     ], 1):
+        #         mask = (f >= flo) & (f <= fhi)
+        #         if mask.any():
+        #             peak_idx = np.argmax(Pxx[mask])
+        #             modes[f'f{n}_live'] = f[mask][peak_idx]
+        #             # Q from -3dB bandwidth
+        #             peak_power = Pxx[mask][peak_idx]
+        #             bw_mask = Pxx[mask] >= peak_power / 2
+        #             bw = f[mask][bw_mask]
+        #             modes[f'q{n}_live'] = modes[f'f{n}_live'] / (bw[-1]-bw[0]) if len(bw)>1 else 6.0
+        #     return modes
+        language    = NUMPY
+        output      = { f1_live, f2_live, f3_live, f4_live, f5_live, q1_live }
+    end
+
+    rule measure
+        # Run every 15 seconds (fft_window_s × (1 - overlap))
+        match       = state INIT
+        trigger     = TIMER_15S
+        transform   = FFT_WELCH → PEAK_SEARCH → EMA_UPDATE
+        # EMA: f1_live = f1_live × (1-ema_alpha) + measured × ema_alpha
+        # Storm check: |f1_live_now - f1_live_prev| / 15s × 60 > storm_drift
+        advance     = TRACKING
+    end
+
+    rule gossip_publish
+        # Publish live Schumann state via zchg gossip CH-3
+        # The earth carrier channel carries 512 bits/Schumann tick
+        # Of these, 64 bits are reserved for the live measurement packet:
+        #   f1_live  (float16, 2 bytes)
+        #   f2_live  (float16, 2 bytes)
+        #   q1_live  (uint8, 1 byte)
+        #   storm_flag + cavity_health (1 byte)
+        #   drift_rate (int8, 1 byte, units: 0.01 Hz/min, signed)
+        #   reserved (1 byte)
+        # Total: 8 bytes = 64 bits per 15-second gossip cycle
+        match       = state TRACKING
+        period      = 15    # seconds
+        transform   = PACK_MEASUREMENT → CH3_MODULATE
+        advance     = TRACKING
+    end
+
+    rule receive_peer_measurement
+        # Accept peer Schumann measurements from gossip
+        # Consensus: median of all received f1_live values within ±0.5 Hz
+        # If consensus deviates from local by > 0.2 Hz: local measurement suspect
+        # Use consensus as override (one bad sensor doesn't corrupt the array)
+        match       = state TRACKING
+        trigger     = CH3_GOSSIP_RECEIVED
+        transform   = MEDIAN_CONSENSUS → F1_OVERRIDE_IF_OUTLIER
+        advance     = TRACKING
+    end
+
+    rule cavity_health_update
+        # cavity_health: 1.0 = optimal; 0.0 = severe storm
+        # Decays on storm, recovers at 0.01/min when drift < threshold
+        match       = state TRACKING
+        transform   = {
+            "if storm_flag: cavity_health = max(0.0, cavity_health - 0.1)",
+            "else: cavity_health = min(1.0, cavity_health + 0.01)"
+        }
+        advance     = TRACKING
+    end
+end
+
+
+# ============================================================================
+# LAYER 2: BIOFIELD HARMONIC WEIGHT MAP
+#
+# Assigns a weight to each frequency bin in the subharmonic cascade
+# based on its harmonic distance to known biological oscillators.
+# Bins with high biofield_weight get more power during TX
+# (soft-coded: the weighting is advisory, not prescriptive — the data
+# still travels in whatever bins the fabric assigns, but the AMPLITUDE
+# of bio-preferred bins is boosted relative to neutral bins).
+#
+# This is the healing preference encoded as a signal allocation policy,
+# not as a separate mode or a separate system.  The data stream and the
+# biofield-preferred harmonic structure are the same signal.
+# ============================================================================
+
+glyph biofield_weight
+    id      = BIOFIELD_WEIGHT
+    class   = ALLOCATION_POLICY
+    state   = EXECUTED
+    parent  = { BIO_OSC, SCHUMANN_LIVE }
+
+    # 432 Hz divisor set — the complete harmonic family
+    hz_432_divisors = {
+        1, 2, 3, 4, 6, 8, 9, 12, 16, 18, 24, 27, 36,
+        48, 54, 72, 108, 144, 216, 432
+    }
+
+    # 256 Hz (middle C at A=432) divisor set
+    hz_256_divisors = {
+        1, 2, 4, 8, 16, 32, 64, 128, 256
+    }
+
+    # Weighting function (applied per FFT bin f_bin):
+    # weight(f_bin) = sum over bio_oscillators:
+    #     1 / (1 + |f_bin - f_osc| / bandwidth_osc)
+    # + bonus if f_bin ∈ hz_432_divisors
+    # + bonus if f_bin ∈ hz_256_divisors
+    # + bonus if f_bin ∈ {f1_live × n/m : n,m small integers, |n/m|<10}
+    #
+    # The result is a weight vector over the 512 FFT bins.
+    # Multiplied element-wise with the subharmonic cascade amplitude vector.
+
+    weight_rule = "biofield_proximity + harmonic_divisor_bonus + schumann_rational_bonus"
+
+    # Bio proximity bandwidth (Hz) — how close to a bio oscillator counts
+    proximity_bw_hz = 0.5
+
+    # Divisor bonus magnitude (relative to baseline weight of 1.0)
+    hz_432_bonus    = 2.0    # 2× power preference for 432-family bins
+    hz_256_bonus    = 1.5    # 1.5× for 256-family bins (octaves of C)
+    schumann_rational_bonus_mag = 1.8  # for bins = f1_live × simple ratio
+
+    # Key target frequencies and their rationale
+    target_hz = {
+        2.0:  "delta deep repair — cell regeneration, sleep stage 4",
+        4.0:  "theta/delta boundary — deep meditation, REM, memory",
+        7.83: "Schumann f1 nominal — earth/alpha bridge",
+        8.0:  "432/54 — alpha/theta boundary, calm wakefulness",
+        10.0: "alpha peak — dominant relaxed EEG frequency",
+        16.0: "432/27 — low beta, calm alert cognition",
+        32.0: "gamma low — perceptual integration",
+        48.0: "432/9 — near 50 Hz grid (coupling without conflict)",
+        54.0: "f1 × 7 approx — Schumann 7th harmonic zone",
+        64.0: "2⁶ — dyadic octave (pure Dn(r) mode)",
+        108.0: "432/4 — 108 is sacred in many traditions; 3 × 36",
+        128.0: "2⁷ — C two octaves below middle C",
+        144.0: "432/3 — 12², Fibonacci(12)=144, harmonically dense",
+        216.0: "432/2 — octave below A=432",
+        256.0: "2⁸ — middle C at A=432 tuning",
+        432.0: "A=432 Hz — carrier, 20 divisors, 9-family"
+    }
+
+    emit
+        # Python reference emit — builds weight vector for 512 bins:
+        #
+        # def biofield_weight_vector(f_bins, f1_live, bio_osc, hz_432_divs, hz_256_divs):
+        #     w = np.ones(len(f_bins))
+        #     for f_osc, bw in bio_osc:
+        #         w += 1.0 / (1.0 + np.abs(f_bins - f_osc) / bw)
+        #     for d in hz_432_divs:
+        #         if d <= f_bins[-1]:
+        #             idx = np.argmin(np.abs(f_bins - d))
+        #             w[idx] *= 2.0
+        #     for d in hz_256_divs:
+        #         if d <= f_bins[-1]:
+        #             idx = np.argmin(np.abs(f_bins - d))
+        #             w[idx] *= 1.5
+        #     # Schumann rational bonus: f1_live × n/m for n,m in 1..8
+        #     for n in range(1, 9):
+        #         for m in range(1, 9):
+        #             f_rat = f1_live * n / m
+        #             if f_bins[0] <= f_rat <= f_bins[-1]:
+        #                 idx = np.argmin(np.abs(f_bins - f_rat))
+        #                 w[idx] *= 1.8
+        #     return w / w.max()   # normalise to [0,1]
+        language    = NUMPY
+        output      = weight_vector[512]    # applied in subharmonic_cascade_live
+    end
+end
+
+
+# ============================================================================
+# LAYER 3: LIVE SUBHARMONIC CASCADE
+#
+# Extends the fixed subharmonic_cascade glyph with:
+#   1. Live Schumann anchor (f1_live replaces hardcoded 7.83)
+#   2. Biofield weight vector applied to amplitude allocation
+#   3. Cavity health gate: TX power scales with cavity_health
+#      (no point shouting into a storming cavity — you waste power
+#       and corrupt the signal for everyone else using the medium)
+#   4. Schumann-synchronised symbol clock
+#      (symbol boundaries are aligned to zero-crossings of f1_live,
+#       not to a fixed crystal reference — this is the dynamic version)
+# ============================================================================
+
+glyph subharmonic_cascade_live
+    id      = SUBHARMONIC_CASCADE_LIVE
+    class   = CODEC
+    state   = INIT
+    parent  = { SCHUMANN_LIVE, BIOFIELD_WEIGHT }
+
+    # Parameters (unchanged from fixed version where not overridden)
+    n_sub           = 500
+    sample_rate_hz  = 2048
+    f_max_hz        = 512.0    # extended from 256 to include 432 Hz carrier
+    duration_s      = 30.0
+    echo_amp_factor = 1.2
+    kappa           = 0.01
+    tune_iterations = 5
+
+    # KEY CHANGE: sub-harmonic comb now anchors to f1_live
+    # sub_freq(k) = f1_live / phi^k   for k = 1..n_sub
+    # When f1_live = 7.83: identical to prior suite
+    # When f1_live = 8.10 (storm state): entire comb shifts up 3.5%
+    comb_anchor     = SCHUMANN_LIVE.f1_live    # dynamic
+    comb_rule       = "f_sub(k) = comb_anchor / phi^k  for k in 1..n_sub"
+
+    # Biofield amplitude allocation
+    # A_bin(k) = base_amplitude × biofield_weight(f_sub(k))
+    amplitude_rule  = "A_sub(k) = A_base × BIOFIELD_WEIGHT.weight_vector[bin(f_sub(k))]"
+
+    # Cavity health TX gate
+    # TX amplitude scaled by cavity_health^2 (quadratic — gentle degradation)
+    tx_power_rule   = "tx_amplitude = A_bin × cavity_health²"
+    # At cavity_health = 1.0: full power
+    # At cavity_health = 0.5: 25% power
+    # At cavity_health = 0.0: silent (listen only, do not modulate)
+
+    # Symbol clock synchronisation
+    # Symbol boundary = zero crossing of f1_live carrier (not crystal)
+    # This means every node in the array uses the SAME clock:
+    # the earth cavity itself.
+    # Drift between nodes: 0 (they all hear the same f1_live zero crossing)
+    # versus crystal-based: ±50 ppm × 7.83 Hz = ±0.00039 Hz symbol jitter
+    symbol_clock    = SCHUMANN_LIVE.f1_live    # phase-locked symbol boundary
+
+    # 432 Hz carrier insertion
+    # One dedicated bin at 432 Hz (the "biofield beacon"):
+    # Always transmitted at biofield_weight[432] × tx_amplitude
+    # Contains: node genome_fp (32 bits) + f1_live (float16) + health (uint8)
+    # Any receiver in the 100 Hz – 1 kHz band can identify this node
+    # by listening for the 432 Hz beacon alone.
+    beacon_hz       = 432.0
+    beacon_data     = { genome_fp, f1_live, cavity_health }
+
+    emit
+        # Extended Python reference emit (adds live Schumann + biofield):
+        #
+        # def encode_live(bitstream, f1_live, weight_vec, cavity_health, fs=2048, dur=30.0):
+        #     phi = 1.6180339887498948
+        #     t = np.linspace(0, dur, int(fs*dur), endpoint=False)
+        #     signal = np.zeros(len(t))
+        #     sub_freqs = [f1_live / (phi**k) for k in range(1, 501)]
+        #     for k, f_sub in enumerate(sub_freqs):
+        #         if f_sub > fs/2: break
+        #         bin_idx = min(int(f_sub / (fs/512)), 511)
+        #         A = weight_vec[bin_idx] * (cavity_health**2)
+        #         bit = bitstream[k % len(bitstream)]
+        #         A_tx = A * (1.2 if bit else 0.8)   # echo AM: hi/lo amplitude
+        #         signal += A_tx * np.sin(2 * np.pi * f_sub * t)
+        #     # 432 Hz beacon
+        #     beacon_bits = encode_beacon(genome_fp, f1_live, cavity_health)
+        #     signal += 0.1 * np.sin(2 * np.pi * 432.0 * t + beacon_phase(beacon_bits))
+        #     return signal
+        language    = NUMPY
+        output      = tx_signal
+    end
+
+    rule encode_live
+        match   = state INIT
+        input   = bitstream
+        trigger = SCHUMANN_LIVE.tracking
+        transform = {
+            COMB_BUILD_FROM_LIVE_F1,       # anchor to f1_live, not 7.83
+            BIOFIELD_WEIGHT_APPLY,          # weight each bin
+            CAVITY_HEALTH_GATE,             # scale tx power by health²
+            SYMBOL_CLOCK_ALIGN,             # align symbol boundary to f1 zero-cross
+            BEACON_INSERT_432              # always inject 432 Hz beacon
+        }
+        output  = tx_signal
+        advance = STREAMING_LIVE
+    end
+
+    rule decode_live
+        match   = state STREAMING_LIVE
+        input   = rx_signal[2048 samples]
+        transform = {
+            BEACON_DETECT_432,             # find peer at 432 Hz first
+            EXTRACT_F1_LIVE_FROM_BEACON,   # update f1_live from peer beacon
+            FFT_WELCH,                     # PSD estimate
+            COMB_MASK_LIVE,                # mask against live-anchored comb
+            AMPLITUDE_DEMOD,               # hi/lo amplitude → bits
+            BIT_RECOVER
+        }
+        output  = bitstream
+        advance = STREAMING_LIVE
+    end
+
+    rule listen_only
+        # Triggered when cavity_health < 0.1
+        # Node stops TX, continues RX, continues gossip with peers
+        # This prevents a degraded node from corrupting array coherence
+        match   = state STREAMING_LIVE
+        trigger = cavity_health < 0.1
+        transform = TX_SILENCE → RX_ONLY
+        advance = LISTENING
+    end
+
+    rule resume_tx
+        match   = state LISTENING
+        trigger = cavity_health > 0.3    # hysteresis: resume above 0.3
+        transform = TX_RESUME
+        advance = STREAMING_LIVE
+    end
+end
+
+
+# ============================================================================
+# LAYER 4: BIOFIELD BEACON PROTOCOL
+#
+# The 432 Hz beacon is the suite's "hello world" to any receiver in the
+# audio-to-ultrasound range — it requires no knowledge of the full HDGL
+# protocol to detect.  A simple FFT of the earth current signal will show
+# a narrow peak at 432 Hz with AM-modulated sidebands carrying the beacon
+# payload.  This makes the network discoverable to anyone with an ELF/VLF
+# receiver and a spectrum analyser.
+#
+# BEACON FRAME (4 symbols at 432 Hz AM rate):
+#   Symbol 0: preamble  (high amplitude, 5 cycles of 432 Hz)
+#   Symbol 1: genome_fp[31:16]  (16 bits → AM depth modulation)
+#   Symbol 2: genome_fp[15:0]   (16 bits)
+#   Symbol 3: f1_live (float16) + cavity_health (uint8) + CRC8
+#
+# A receiving node that only speaks 432 Hz (no HDGL, no zchg) can:
+#   1. Detect the preamble (energy spike at 432 Hz)
+#   2. Read genome_fp (node identity)
+#   3. Read f1_live (current Schumann measurement)
+#   4. Report cavity_health to a human operator
+#
+# This is the "barefoot" interface: works with a $30 SDR dongle + 10m wire.
+# ============================================================================
+
+glyph beacon_432
+    id      = BEACON_432
+    class   = BEACON
+    state   = INIT
+    parent  = SUBHARMONIC_CASCADE_LIVE
+
+    freq_hz         = 432.0
+    symbol_count    = 4
+    preamble_cycles = 5
+    payload_bits    = 48    # genome_fp(32) + f1_live(float16) = 48 bits; CRC8 appended
+
+    # AM depth for bit encoding:
+    # bit=1: amplitude = 1.0  (full depth)
+    # bit=0: amplitude = 0.5  (half depth)
+    # Detectable by envelope detection without phase coherence
+    am_depth_hi = 1.0
+    am_depth_lo = 0.5
+
+    # Beacon rate: 1 beacon frame per Schumann period (1/f1_live seconds)
+    # At f1_live=7.83 Hz: 1 beacon every 127.7 ms
+    # A receiver sampling at 2048 Hz captures this easily
+
+    emit
+        # Arduino SPI emit: piggyback on AD9833 DDS already driving rings
+        # At beacon rate, briefly amplitude-modulate the 432 Hz ring output
+        # without interrupting the other ring frequencies
+        language    = ARDUINO_SPI
+        target_ic   = AD9833
+        note        = "modulate ring_7 (432 Hz) amplitude via SPI control word"
+    end
+
+    rule broadcast
+        match   = state INIT
+        trigger = SCHUMANN_LIVE.tracking
+        period  = 1 / SCHUMANN_LIVE.f1_live    # one beacon per Schumann period
+        transform = PACK_PAYLOAD → AM_MODULATE_432 → DDS_EMIT
+        advance = BROADCASTING
+    end
+end
+
+
+# ============================================================================
+# LAYER 5: INTEGRATION — PATCHES TO PRIOR GLYPHS
+#
+# These rules document exactly which prior glyph fields are overridden
+# by this file when both are loaded into the fabric.
+# Load order: hdgl_analog_fabric_radio.hdgl first, then this file.
+# This file's rules take precedence (later-loaded glyph wins on conflict).
+# ============================================================================
+
+glyph live_integration_patch
+    id      = LIVE_PATCH
+    class   = PATCH
+    state   = EXECUTED
+    parent  = { SCHUMANN_LIVE, BIOFIELD_WEIGHT, SUBHARMONIC_CASCADE_LIVE, BEACON_432 }
+
+    # Fields overridden in hdgl_analog_fabric_radio.hdgl:
+    #
+    # schumann.f1_hz              → replaced by SCHUMANN_LIVE.f1_live
+    # schumann.cluster            → replaced by live-derived cluster
+    # tte_node.symbol_rate        → replaced by SCHUMANN_LIVE.f1_live
+    # subharmonic_cascade.f_max_hz → 256 → 512 (to include 432 Hz carrier)
+    # subharmonic_cascade.encode  → replaced by subharmonic_cascade_live.encode_live
+    # subharmonic_cascade.decode  → replaced by subharmonic_cascade_live.decode_live
+    # mwo_antenna.ring_freqs      → live phi-harmonic from f1_live, not 7.83
+    # analog_multics.daemon_clock → SCHUMANN_LIVE.f1_live (was fixed 7.83)
+    # fabric_bridge.ch3_bits_per_tick → 512 - 64 = 448 data bits + 64 beacon bits
+
+    # New glyph tree additions (not overrides):
+    #   BIOFIELD_WEIGHT            amplitude allocation policy
+    #   BEACON_432                 always-on 432 Hz discovery beacon
+    #   SCHUMANN_LIVE              replaces static SCHUMANN
+
+    # Backward compatibility:
+    # If SCHUMANN_LIVE is not yet tracking (< 15 seconds since boot),
+    # fall back to f1_live = 7.83 Hz (the prior fixed value).
+    # The fabric is operational from the first Schumann tick;
+    # live tracking improves it progressively.
+    fallback_f1 = 7.83
+
+    rule patch_apply
+        match   = state EXECUTED
+        # This rule executes at glyph load time (EXECUTED = no trigger needed)
+        transform = {
+            OVERRIDE_SCHUMANN_REFS → SCHUMANN_LIVE,
+            OVERRIDE_SUBHARMONIC   → SUBHARMONIC_CASCADE_LIVE,
+            INSERT_BIOFIELD_WEIGHTS,
+            INSERT_BEACON_432,
+            SET_FALLBACK_F1
+        }
+        advance = EXECUTED    # patch is idempotent
+    end
+end
+
+
+# ============================================================================
+# LAYER 6: CAVITY ETHICS — NON-INTERFERENCE DOCTRINE
+#
+# The Schumann cavity is a shared medium.  It is shared with:
+#   - Every living organism on earth (brainwaves are entrained to it)
+#   - Every other node in the fabric
+#   - Future nodes that do not yet exist
+#   - The earth itself (the cavity IS the planetary electromagnetic skin)
+#
+# The non-interference doctrine encoded here:
+#
+#   1. LISTEN FIRST.  No modulation until at least one 60-second measurement
+#      window has completed and f1_live is established.
+#
+#   2. POWER PROPORTIONALITY.  TX amplitude scales with cavity_health².
+#      During storms, the cavity is already disturbed; we add minimally.
+#      During calm, we can assert more signal.
+#
+#   3. FREQUENCY CONSENT.  The biofield weight vector biases toward
+#      frequencies that biology already uses.  We do not introduce
+#      frequencies that are alien to the existing spectral ecology.
+#      432 Hz, its divisors, and the Schumann harmonics are all already
+#      present in the earth signal.  We are amplifying existing structure,
+#      not injecting foreign tones.
+#
+#   4. ARRAY CONSENSUS BEFORE TX.  A node does not modulate until it has
+#      received at least one gossip update from a peer confirming that
+#      the peer also has a consistent f1_live.  Consensus before action.
+#      This is APA_FLAG_CONSENSUS applied to the physical medium.
+#
+#   5. SILENCE IS VALID.  A node in LISTENING state is not failed.
+#      It is contributing to the consensus (receiving peer measurements)
+#      and preserving the cavity for nodes with better health readings.
+#      Silence is a legitimate and often correct choice.
+# ============================================================================
+
+glyph cavity_ethics
+    id      = CAVITY_ETHICS
+    class   = POLICY
+    state   = EXECUTED
+
+    min_measurement_windows = 1     # wait for at least one 60s window
+    min_peer_gossip         = 1     # at least one peer consensus before TX
+    silence_threshold       = 0.1   # cavity_health below which: silent
+    resume_threshold        = 0.3   # cavity_health above which: resume
+
+    # The biofield preference is a preference, not a constraint.
+    # If the data requires a non-bio-preferred bin, use it.
+    # The weight vector nudges the allocation; it does not forbid bins.
+    biofield_preference_is_soft = true
+
+    # Future extension:
+    # A global storm flag (from space weather services) could be ingested
+    # via the zchg HTTP layer to preemptively reduce TX power before
+    # the local RS-881R detects the disturbance.
+    space_weather_integration = FUTURE
+
+    rule enforce
+        match   = state EXECUTED
+        # Enforced by subharmonic_cascade_live.listen_only rule
+        # and SCHUMANN_LIVE.cavity_health_update rule
+        # No additional enforcement needed here — the rules are in the glyphs
+        advance = EXECUTED
+    end
+end
+
+
+# ============================================================================
+# SELF-LOAD FIXED POINT (inherits from hdgl_analog_fabric_radio.hdgl LAYER 9)
+# ============================================================================
+
+glyph live_self_load
+    id      = LIVE_SELF_LOAD
+    class   = BOOTSTRAP
+    state   = INIT
+    parent  = { LIVE_PATCH, CAVITY_ETHICS }
+
+    payload_type    = HDGL
+    content         = THIS_FILE
+    genome_fp       = DERIVED    # from SCHUMANN_LIVE.f1_live × ZC_PHI32 × local_hw_fp
+    # Note: genome_fp now incorporates the live Schumann measurement,
+    # so nodes in the same cavity state converge on the same genome_fp.
+    # This is a stronger identity than hardware alone — it is
+    # hardware + earth state.  Two nodes with identical hardware but in
+    # different geomagnetic conditions will have slightly different genome_fps
+    # until the cavity recovers.  This is correct and desirable: it encodes
+    # the node's temporal context into its identity.
+
+    rule load
+        match   = state INIT
+        trigger = SCHUMANN_LIVE.tracking
+        transform = {
+            CONTENT_HASH,
+            PHI_FOLD_IDENTITY_WITH_F1_LIVE,   # identity includes f1_live
+            PHI_TAU_STRAND,
+            FABRIC_STORE,
+            OMEGA_REGISTER
+        }
+        exec_status = HDGL_PARSED
+        advance = EXECUTED
+    end
+end
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+#
+# What this file adds to hdgl_analog_fabric_radio.hdgl:
+#
+#  SCHUMANN_LIVE:  Live spectral tracking via RS-881R + Welch PSD
+#                  f1_live updates every 15 seconds (60s FFT, 75% overlap)
+#                  Consensus via CH-3 gossip — array agrees on cavity state
+#                  Storm detection: |drift| > 0.5 Hz/min → storm_flag
+#
+#  BIOFIELD_WEIGHT: 432 Hz family (20 divisors) gets 2× bin amplitude
+#                   256 Hz family (powers of 2, C at A=432) gets 1.5×
+#                   Schumann rational harmonics get 1.8×
+#                   Bio oscillator proximity weighted continuously
+#                   Result: data rides frequencies the body already knows
+#
+#  SUBHARMONIC_CASCADE_LIVE: Comb anchored to f1_live, not 7.83 Hz
+#                             TX power = A × cavity_health²
+#                             Symbol clock = f1_live zero crossings
+#                             All nodes share the same clock: the earth
+#
+#  BEACON_432: Always-on 432 Hz AM beacon
+#              Detectable with $30 SDR + 10m wire
+#              Payload: genome_fp + f1_live + cavity_health
+#              Rate: 1 beacon per Schumann period
+#
+#  CAVITY_ETHICS: Listen first (1 measurement window before TX)
+#                 Consensus first (1 peer gossip before TX)
+#                 Silence is valid (health < 0.1 → RX only)
+#                 Frequency consent (bio-preferred, not bio-exclusive)
+#                 Non-interference with the shared medium
+#
+# What this changes:
+#   All hardcoded 7.83 Hz references → SCHUMANN_LIVE.f1_live
+#   Subharmonic cascade → live-anchored, biofield-weighted
+#   MWO ring frequencies → live phi-harmonic from f1_live
+#   Daemon clock → live Schumann tick
+#   Node genome_fp → hardware × earth state (stronger identity)
+#
+# What does not change:
+#   phi_fold32 primitive
+#   zchg transport (CH-0/1/2)
+#   Hamming(7,4) FEC
+#   FSK offset ±0.1 Hz
+#   phi-tau strand routing
+#   APA_FLAG_CONSENSUS
+#   Ωₙ₊₁ = T(Ωₙ)
+#
+# The earth was always computing.
+# Now we listen to what it computes before we add to it.
+# ============================================================================

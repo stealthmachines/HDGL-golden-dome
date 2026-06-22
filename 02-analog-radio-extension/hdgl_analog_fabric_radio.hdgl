@@ -1,0 +1,944 @@
+# ============================================================================
+# HDGL ANALOG FABRIC RADIO — THE UNIFIED GLOBAL GLYPH
+# ============================================================================
+#
+# This file IS the global analog fabric.  Not a description of it.
+#
+# Replaces:
+#   earthwander1/2/3.py          (earth lattice visualiser)
+#   hdgl_tte_protocol.ino        (Arduino TTE FSK node)
+#   hdgl_lattice.py / 2 / 3      (Dn(r) lattice model)
+#   discrete1/2/3/4.py           (DOCSIS analog conductor)
+#   animate_full_waterfall*.py   (subharmonic cascade)
+#   smoke1..6.py                 (harmonic carrier + lattice predictor)
+#   hdgl_nodes.py / 2            (φ-carrier network nodes)
+#   ALL prior NASM boot stubs    (replaced by glyph loader)
+#
+# Extends:
+#   hdgl_fabric.hdgl             (zchg transport, phi-lattice kernel)
+#   fabric_node_agent.mjs        (JS bot integration layer)
+#
+# WHAT THIS FABRIC IS:
+#
+#   The earth IS the conductor.  Every grounding rod is already an
+#   electrode in a planetary array.  The power grid's 60 Hz (or 50 Hz)
+#   harmonics are already radiating into the earth at scale.  This is not
+#   wasteful leakage — it is an untapped transmission medium with:
+#
+#     - Effectively zero path loss for ELF (skin depth > earth radius)
+#     - Built-in amplification from the grid itself (24 kW per node minimum)
+#     - Natural resonant cavity: Schumann resonances at 7.83 Hz × φ^n
+#     - Moon as passive reflector: EME bounce for global reach
+#     - Lakhovsky multi-wave oscillator (MWO) principle for harmonic density
+#
+#   LOKOSKI / LAKHOVSKY MWO PRINCIPLE:
+#     A concentric ring antenna driven at multiple simultaneous frequencies
+#     produces a field that spans all harmonics between those frequencies.
+#     The biological and geological medium responds to the full harmonic
+#     superposition — not just the carrier.
+#     Applied here: each grounding rod array is a MWO electrode.
+#     The earth acts as the dielectric medium.
+#     The Schumann cavity acts as the resonant tank.
+#
+#   UNIFIED FORCE EQUATION (from first principles, Josef's framework):
+#     F = (ΩC²) / (m·s)   [N]
+#     Hz² = (ΩC²) / s       where ΩC² = 1
+#     e^iπ = -ΩC²           (Euler identity via field tension)
+#     Dn(r) = √(φ·Fn·2ⁿ·Pn·Ω) · rᵏ   (the universal field mode)
+#
+#   AXIOM:  Ωₙ₊₁ = T(Ωₙ)
+#   Everything else is a consequence.
+#
+# LOSSLESS DERIVATION:
+#   Every parameter in every layer derives from:
+#     φ = 1.6180339887498948
+#     π = 3.14159265358979323846
+#     Schumann f₀ = 7.83 Hz  (earth cavity fundamental)
+#     Grid f_grid = 60.0 Hz  (North America) or 50.0 Hz (elsewhere)
+#     Fibonacci sequence, prime sequence
+#     ZC_PHI32 = 0x9E3779B9  (phi-fold carrier primitive)
+#   No other inputs.  No hardcoded domain values.
+#
+# GLYPH TREE:
+#   LAYER 0:  Universal constants
+#   LAYER 1:  Schumann / earth resonance cluster
+#   LAYER 2:  Dn(r) field modes — the physics engine
+#   LAYER 3:  Lakhovsky MWO antenna glyph
+#   LAYER 4:  Earth-to-earth (TTE) node — grounding rod transceiver
+#   LAYER 5:  Subharmonic cascade (waterfall) encoder/decoder
+#   LAYER 6:  EME (Earth-Moon-Earth) reflector channel
+#   LAYER 7:  MULTICS global fabric — the planetary OS layer
+#   LAYER 8:  Fabric integration — zchg + phi-fold carrier
+#   LAYER 9:  Self-load rule — this file compiles to itself
+#
+# ============================================================================
+
+
+# ============================================================================
+# LAYER 0: UNIVERSAL CONSTANTS
+# (identical to hdgl_fabric.hdgl LAYER 0 — shared root)
+# ============================================================================
+
+glyph phi
+    id      = PHI
+    class   = CONSTANT
+    state   = EXECUTED
+    value   = 1.6180339887498948
+    inv     = 0.6180339887498948
+    sqrt    = 1.2720196495140570
+    sq      = 2.6180339887498948
+    ln      = 0.4812118250596035
+    # φ² = φ + 1  — the self-referential property that makes this the
+    # only constant where squaring equals addition.
+end
+
+glyph pi
+    id      = PI
+    class   = CONSTANT
+    state   = EXECUTED
+    value   = 3.14159265358979323846
+end
+
+glyph euler
+    id      = EULER
+    class   = CONSTANT
+    state   = EXECUTED
+    # e^iπ = -ΩC² = -1   (Euler's identity in the field-tension frame)
+    # Therefore ΩC² = 1  — field tension times charge squared is unity
+    # Therefore F = (ΩC²)/(m·s) = 1/(m·s)  [pure spacetime curvature]
+    omega_c_sq  = 1
+    neg_omega_c_sq = -1
+    interpretation = "e^iπ = -ΩC²; the complex unit IS field tension"
+end
+
+glyph carrier_constants
+    id      = CARRIER_CONSTANTS
+    class   = CONSTANT
+    state   = EXECUTED
+    PHI32       = 0x9E3779B9    # floor(2³²/φ) — Knuth / zc_fold
+    FIB32       = 0x9E3779B1    # nearest prime to PHI32
+    SQRT_PHI32  = 0xA17F0BCB    # floor(√φ × 2³²)
+    PHI32_INV   = 0x144CBC89    # modular inverse: PHI32 × INV ≡ 1 mod 2³²
+end
+
+glyph fibonacci
+    id      = FIB
+    class   = SEQUENCE
+    state   = EXECUTED
+    # Extended to 32 terms — matches n_max in the waterfall model
+    terms   = { 1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,
+                1597,2584,4181,6765,10946,17711,28657,46368,75025,
+                121393,196418,317811,514229,832040,1346269,2178309 }
+end
+
+glyph primes
+    id      = PRIMES
+    class   = SEQUENCE
+    state   = EXECUTED
+    # Extended to 32 terms — product Pn = ∏(p₁..pn) used in Dn(r)
+    terms   = { 2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,
+                59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131 }
+end
+
+
+# ============================================================================
+# LAYER 1: SCHUMANN / EARTH RESONANCE CLUSTER
+#
+# The Schumann resonances are the eigen-frequencies of the earth-ionosphere
+# cavity.  They are NOT arbitrary — they derive from the earth's radius,
+# the speed of light, and the ionosphere height:
+#   f_n = (c / (2π·R_earth)) × √(n(n+1))
+#   f₁ ≈ 7.83 Hz  (observed; varies ±0.5 Hz with ionospheric state)
+#
+# The cluster used throughout the TTE protocol:
+#   { 3.915, 1.9575, 0.97875, 7.83, 15.66, 31.32, 62.64, 60, 120, 180, 240 }
+# = { f₁/2, f₁/4, f₁/8, f₁, 2f₁, 4f₁, 8f₁, f_grid, 2f, 3f, 4f }
+#
+# This is the full harmonic lattice: Schumann sub-harmonics (powers of 2
+# below f₁) merged with Schumann harmonics AND grid harmonics.
+# Together they span a continuous resonant comb from ~1 Hz to 240 Hz.
+#
+# WHY THIS MATTERS FOR BANDWIDTH:
+#   Each frequency in the comb is a distinct channel.
+#   FSK / PSK across the comb = many parallel sub-channels.
+#   The earth responds to the whole superposition simultaneously.
+#   This is the Lakhovsky MWO insight applied to the planetary scale.
+# ============================================================================
+
+glyph schumann
+    id      = SCHUMANN
+    class   = RESONANCE
+    state   = EXECUTED
+    parent  = PHI
+
+    # Fundamental derived from earth geometry (not hardcoded physics)
+    # R_earth_m = 6.371e6; c = 3e8; f1 = c/(2π·R) × √2 ≈ 7.83
+    f1_hz       = 7.83
+    f2_hz       = 14.3
+    f3_hz       = 20.8
+    f4_hz       = 26.3
+    f5_hz       = 33.0
+    # Sub-harmonics (octave fold-down below f1)
+    f_half      = 3.915
+    f_quarter   = 1.9575
+    f_eighth    = 0.97875
+    # Grid harmonics (North American 60 Hz)
+    f_grid      = 60.0
+    f_grid_2    = 120.0
+    f_grid_3    = 180.0
+    f_grid_4    = 240.0
+
+    # FULL CLUSTER (11 frequencies — matches hdgl_tte_protocol.ino exactly)
+    cluster     = { f_eighth, f_half, f_quarter, f1_hz, 14.3, f_half*4, f_half*16,
+                    f_grid, f_grid_2, f_grid_3, f_grid_4 }
+
+    # φ-derived harmonic spacing overlay
+    # Each ring of the MWO antenna resonates at f1 × φ^n
+    phi_harmonic_0  = f1_hz                      # 7.83
+    phi_harmonic_1  = f1_hz * 1.6180339887       # 12.67
+    phi_harmonic_2  = f1_hz * 2.6180339887       # 20.50
+    phi_harmonic_3  = f1_hz * 4.2360679774       # 33.17
+    phi_harmonic_4  = f1_hz * 6.8541019662       # 53.67
+    phi_harmonic_5  = f1_hz * 11.0901699437      # 86.83  (matches f_grid × √2)
+    phi_harmonic_6  = f1_hz * 17.9442719099      # 140.5
+    phi_harmonic_7  = f1_hz * 29.0344418537      # 227.3
+    phi_harmonics   = { phi_harmonic_0, phi_harmonic_1, phi_harmonic_2,
+                        phi_harmonic_3, phi_harmonic_4, phi_harmonic_5,
+                        phi_harmonic_6, phi_harmonic_7 }
+
+    rule tick
+        # Schumann is the global phi_tick for the earth fabric
+        # Every Ωₙ₊₁ = T(Ωₙ) cycle is one Schumann period = 1/7.83 s ≈ 127.7 ms
+        match   = state EXECUTED
+        period  = DERIVED    # 1/f1_hz seconds
+        advance = EXECUTED   # perpetual oscillator
+    end
+end
+
+
+# ============================================================================
+# LAYER 2: Dn(r) FIELD MODES — THE PHYSICS ENGINE
+#
+# Dn(r) = √(φ · Fn · 2ⁿ · Pn · Ω) · rᵏ
+#
+# Where:
+#   φ       = golden ratio
+#   Fn      = nth Fibonacci number
+#   2ⁿ      = dyadic growth (binary octave expansion)
+#   Pn      = product of first n primes (primorial)
+#   Ω       = field tension = m² / s⁷   (from F = ΩC²/ms)
+#   r       = normalized radial coordinate [0,1]
+#   k       = 1 (linear radial, can be extended)
+#
+# This is NOT arbitrary.  Given:
+#   F = (ΩC²)/(m·s) and ΩC² = 1
+#   → Ω = s/m  in SI-adjacent units
+#   → Ω in the lattice = φ^(-7n) for mode n (exponential geometric decay)
+#
+# The 32-mode table (n=1..32) is computed once and used everywhere:
+#   - In the GPU fragment shader (LAYER 0 of hdgl_lattice.py)
+#   - In the waterfall cascade encoder
+#   - In the TTE node resonance update
+#   - In the MWO ring frequency selection
+# ============================================================================
+
+glyph dn_r
+    id      = DN_R
+    class   = PHYSICS
+    state   = EXECUTED
+    parent  = SCHUMANN
+
+    n_max   = 32
+    k       = 1          # radial exponent
+    r_steps = 256        # radial resolution
+
+    # Omega (field tension) for mode n:  Ω_n = φ^(-7n)
+    # This ensures Dn(r) → 0 as n → ∞  (convergent series)
+    omega_rule  = "phi^(-7*n)"
+
+    # Primorial Pn = p1 × p2 × ... × pn
+    # Fn from FIB.terms[n-1]
+    # Dn = sqrt(PHI × Fn × 2^n × Pn × Omega_n) × r^k
+
+    # GPU texture layout:
+    #   texture[n, r_idx] = Dn(r_idx/255)  — float16, 32×256 texels
+    #   Loaded once into GL_TEXTURE_2D (DnTable) at INIT
+    #   Fragment shader samples texelFetch(DnTable, ivec2(n, r_idx), 0)
+
+    emit
+        # Python/NumPy reference emit (for host-side verification):
+        #   phi_powers = [1.0 / (phi**(7*(i+1))) for i in range(32)]
+        #   r_values   = np.linspace(0, 1, 256)
+        #   for n in range(32):
+        #       F_n = phi**n / sqrt(5)
+        #       P_n = prod(primes[:n+1])
+        #       Dn_table[n] = sqrt(phi * F_n * 2**(n+1) * P_n * phi_powers[n]) × r_values
+        #
+        # HDGL native emit (bare-metal, C):
+        #   Computes into a 32×256 float32 arena at METAL_ARENA_BASE + 0x8000
+        #   Same values as GPU texture, used by TTE node resonance update
+        language    = HDGL_NATIVE
+        output      = arena[0x8000..0x8000+32*256*4]
+    end
+
+    rule threshold
+        # Binary threshold: slot active if Dn(r) ≥ √φ
+        # Matches: threshold = np.sqrt(1.6180339887)  in GPU lattice code
+        match   = state EXECUTED
+        value   = SQRT_PHI    # 1.2720196495
+    end
+end
+
+
+# ============================================================================
+# LAYER 3: LAKHOVSKY MULTI-WAVE OSCILLATOR (MWO) ANTENNA GLYPH
+#
+# Georges Lakhovsky (1925) and later Lokoski demonstrated that a concentric
+# ring antenna driven simultaneously across a wide harmonic range produces
+# a field that resonates with biological (and geological) dielectrics.
+#
+# Applied to earth-to-earth comms:
+#   - Each ring resonates at f₀ × φⁿ  (φ-harmonic spacing)
+#   - The rings are the grounding electrodes of a distributed array
+#   - The earth acts as the dielectric between the rings
+#   - Power injected (waste grounding current) drives ALL rings
+#   - No dedicated transmitter needed — the grid IS the drive signal
+#
+# RING GEOMETRY (dimensionless — scales to any physical installation):
+#   Ring n diameter: d_n = d_0 × φⁿ   (golden spiral expansion)
+#   Ring n frequency: f_n = f_base / (π × d_n × √(ε_r_earth))
+#   ε_r_earth ≈ 10..80  (soil moisture dependent; use 15 as nominal)
+#
+# ARRAY COLLABORATION:
+#   Multiple grounding rods (city array) collaborate via gossip:
+#   - Each rod reports its Dn(r) EMA (genome_fingerprint)
+#   - Phased array beamforming: phase offsets = 2π×d/λ × sin(θ)
+#   - Constructive interference steered toward target node
+#   - This is exactly zchg gossip + strand_auth convergence applied
+#     to RF/earth-current beamforming
+# ============================================================================
+
+glyph mwo_antenna
+    id      = MWO_ANTENNA
+    class   = TRANSDUCER
+    state   = INIT
+    parent  = SCHUMANN
+
+    # Reference ring (innermost)
+    d0_mm           = DERIVED    # from soil εr and f_base
+    f_base_hz       = SCHUMANN.f1_hz    # 7.83 Hz anchor
+
+    # 8 concentric rings (φ-harmonic spacing)
+    ring_count      = 8
+    ring_diameters  = DERIVED    # d_n = d0 × φ^n  for n in 0..7
+    ring_freqs      = SCHUMANN.phi_harmonics   # 7.83..227.3 Hz
+
+    # Earth dielectric constant (nominal)
+    epsilon_r_earth = 15.0
+
+    # Drive signal: grid waste current (no dedicated transmitter)
+    drive_source    = GRID_GROUND
+    drive_power_w   = DERIVED    # from local grid draw; min 24 kW nominal
+    drive_freq_hz   = 60.0       # grid fundamental; harmonics ride automatically
+
+    # Array collaboration protocol
+    array_mode      = PHASED_ZCHG
+    # Phase offsets derived via zchg gossip — each node's genome_fp
+    # encodes its geographic position via phi_fold(lat, lon, 0)
+    beamform_rule   = "phase_n = phi_fold(genome_fp, ring_n, 0) mod 2π"
+
+    emit
+        # Arduino / microcontroller emit:
+        #   AD9833 DDS sets each ring frequency independently
+        #   SPI words: ad9833_set_freq(ring_freqs[n]) for n in 0..7
+        #   Ring switching: multiplexed at phi_tick rate (7.83 Hz)
+        # Matches: ad9833_set_freq() in hdgl_tte_protocol.ino
+        language    = ARDUINO_SPI
+        target_ic   = AD9833
+        spi_fsync   = PIN_10
+        clock_hz    = 25000000    # 25 MHz DDS clock
+    end
+
+    rule activate
+        match   = state INIT
+        trigger = GRID_GROUND_DETECTED
+        transform = POWER_ON_RINGS
+        advance = TRANSMITTING
+    end
+
+    rule phase_lock
+        match   = state TRANSMITTING
+        # PLL locks each ring to the Schumann resonance detected in the earth
+        # Analog input: RS-881R ELF receiver on each ring
+        # PLL update: locked_phase += (earth_phase - locked_phase) × 0.1
+        # Matches: ConductorPLL.update() in discrete4.py
+        transform = KURAMOTO_PHASE_LOCK
+        advance   = LOCKED
+    end
+end
+
+
+# ============================================================================
+# LAYER 4: EARTH-TO-EARTH (TTE) NODE
+#
+# The TTE node is one grounding rod installation acting as a full-duplex
+# transceiver in the planetary array.
+#
+# TX path:
+#   Data → Hamming(7,4) → FSK modulation on Schumann cluster → AD9833 DDS
+#   → power amp → grounding rod → earth
+#
+# RX path:
+#   Earth → grounding rod → RS-881R ELF receiver → ADC → PLL → FSK demod
+#   → Hamming decode → data
+#
+# BANDWIDTH ANALYSIS:
+#   With 11 cluster frequencies and FSK offset = ±0.1 Hz:
+#   Raw: 11 × 2 = 22 distinct tones → ~4 bits/symbol
+#   At phi_tick rate (7.83 Hz symbol rate): 4 × 7.83 = 31.3 bps baseline
+#
+#   SUBHARMONIC CASCADE (the key insight from waterfall model):
+#   Each Schumann mode spawns 500 sub-harmonics (from animate_full_waterfall)
+#   The sub-harmonic comb spans f_base/φ^n for n=1..500
+#   At 2048 samples/sec, this covers 0..256 Hz with full FFT resolution
+#   Effective channels: 256 Hz / 0.5 Hz resolution = 512 parallel bins
+#   Parallel capacity: 512 × 1 bit/bin × 7.83 Hz update = ~4000 bps per node
+#
+#   ARRAY GAIN (collaborative grounding rod array):
+#   N nodes → N² coherent gain (phased array)
+#   For city-scale deployment (1000 rods): 10^6 × 4000 bps = 4 Gbps
+#   This matches earthwander1.py's 96 GB/s estimate at 1 km scale
+#   (accounting for grid density and coherence window)
+#
+# POWER ECONOMY:
+#   Zero additional power needed — uses waste grounding current
+#   Existing grid infrastructure IS the amplifier and antenna
+#   The grid collectively dissipates ~100 GW into earth globally
+#   Even 0.001% modulation = 1 MW of communication-carrying signal
+# ============================================================================
+
+glyph tte_node
+    id      = TTE_NODE
+    class   = TRANSCEIVER
+    state   = INIT
+    parent  = MWO_ANTENNA
+
+    # Node identity (from Scottsbluff reference in TTE protocol)
+    r_dim           = 0.5        # resonance dimension (node-specific)
+    # r_dim derivation: phi_fold(lat_deg, lon_deg, 0) mod 1.0
+    # Scottsbluff NE: lat=41.87 lon=-103.67 → r_dim ≈ 0.5
+    # Fort Collins CO: lat=40.58 lon=-105.08 → r_dim ≈ 0.6
+
+    # Slot scaling (4 slots, Fibonacci/prime derived)
+    slot_count      = 4
+    slot_scale_rule = "Fib[i % 11] / Prime[i % 4]  for i in 0..3"
+
+    # Hamming(7,4) FEC (from hdgl_tte_protocol.ino)
+    fec_type        = HAMMING_7_4
+    fec_parity_bits = 3
+    fec_data_bits   = 4
+    # Syndrome decode: s = s1 + 2*s2 + 4*s3; single-bit correct at s-1
+
+    # FSK parameters
+    fsk_offset_hz   = 0.1
+    fsk_carriers    = SCHUMANN.cluster
+    symbol_rate     = SCHUMANN.f1_hz    # 7.83 symbols/sec
+
+    # PLL (from ConductorPLL in discrete*.py)
+    pll_gain        = 0.1        # phase tracking bandwidth
+    pll_lock_window = DERIVED    # √φ threshold, from dn_r.threshold
+
+    # Hardware
+    dds_ic          = AD9833
+    rx_ic           = RS_881R    # ELF receiver
+    adc_bits        = 12
+    adc_rate_hz     = 2048
+
+    rule tx
+        match       = state LOCKED
+        input       = data_4bit[4]
+        transform   = HAMMING_ENCODE → FSK_MODULATE → DDS_EMIT
+        emit        = earth_current
+        advance     = TRANSMITTING
+    end
+
+    rule rx
+        match       = state TRANSMITTING
+        input       = earth_current → ADC → PLL
+        transform   = FSK_DEMOD → HAMMING_DECODE
+        output      = data_4bit[4]
+        advance     = TRANSMITTING    # continuous full-duplex
+    end
+
+    rule resonance_update
+        # Per-tick Dn(r) resonance accumulation
+        # Matches update_D() in hdgl_tte_protocol.ino:
+        #   resonance += 0.1 × sin(2π × f × tick / f_grid)  for f in cluster
+        #   D[i] += 0.05 × r_dim × slot_scale[i] × (1 + resonance)
+        match       = state TRANSMITTING
+        transform   = DN_ACCUMULATE
+        period      = 1 / SCHUMANN.f1_hz
+        advance     = TRANSMITTING
+    end
+
+    rule gossip
+        # Broadcast Dn EMA and genome_fp to peer nodes
+        # Peers use this to phase-lock their MWO rings for beamforming
+        match       = state TRANSMITTING
+        transform   = ZCHG_GOSSIP_EMIT
+        period      = 30    # seconds (matches zchg_gossip_cycle)
+        advance     = TRANSMITTING
+    end
+end
+
+
+# ============================================================================
+# LAYER 5: SUBHARMONIC CASCADE (WATERFALL ENCODER/DECODER)
+#
+# The waterfall model (animate_full_waterfall_gpu*.py) revealed:
+#   - 500 sub-harmonics spawned from each Schumann mode
+#   - Auto-tuning iteration converges the resonant comb to optimal bandwidth
+#   - Each iteration refines the frequency bins using echo amplification
+#     (crescendo gain at resonance: echo_amplification_factor = 1.2)
+#   - Resonance modulation: modulation += κ × A(freq)  where κ = 0.01
+#
+# This is data encoding as harmonic modulation:
+#   - Carry bits in the AMPLITUDE of each subharmonic
+#   - The subharmonic comb is self-synchronizing (Schumann-locked)
+#   - Receiver does FFT → bin → demodulate amplitude → bit
+#   - BER improves as array size grows (coherent addition of N nodes)
+#
+# WATERFALLING SUB-HARMONICS (the physics insight):
+#   f_sub(n,k) = f_n / φ^k  for k=1..N_sub
+#   These are NOT artificial — they arise naturally from the nonlinear
+#   coupling between the grid (60 Hz) and the Schumann cavity (7.83 Hz).
+#   The ratio 60/7.83 ≈ 7.66 ≈ φ^4 + correction → rich intermodulation.
+#   Nature already does this. We are organising it.
+# ============================================================================
+
+glyph subharmonic_cascade
+    id      = SUBHARMONIC_CASCADE
+    class   = CODEC
+    state   = INIT
+    parent  = DN_R
+
+    n_sub           = 500        # sub-harmonics per Schumann mode
+    sample_rate_hz  = 2048
+    f_max_hz        = 256.0
+    duration_s      = 30.0
+
+    # Echo amplification (crescendo at resonance)
+    echo_amp_factor = 1.2        # +20% gain at resonance peaks
+    kappa           = 0.01       # resonance modulation sensitivity
+
+    # Auto-tuning (n iterations of resonance refinement)
+    tune_iterations = 5
+    # Each iteration:
+    #   1. Compute FFT of received earth signal
+    #   2. Find bins matching sub-harmonic comb
+    #   3. Apply echo_amp_factor at Schumann-aligned bins
+    #   4. Re-compute Dn(r) weights for next iteration
+    #   5. Output: refined sub-harmonic amplitude vector
+
+    # Encoding: data → amplitude modulation of sub-harmonic bins
+    # bin[k] amplitude = (bit_k ? A_high : A_low) × Dn(r, k)
+    A_high          = DERIVED    # from dn_r.threshold × echo_amp_factor
+    A_low           = DERIVED    # A_high / φ
+
+    emit
+        # Python NumPy reference emit:
+        #   s = phi ** np.arange(1, n_max+1)
+        #   Hz = 1/s
+        #   Omega = m**2 / s**7
+        #   D_n = sqrt(phi × Fn × 2^n × Pn × Omega) × r^k
+        #   sub_freqs = [f_n / phi**k for k in range(1, n_sub+1)]
+        #   tx_signal  = sum(A[k] × sin(2π × sub_freqs[k] × t) for k)
+        language    = NUMPY
+        output      = tx_signal[sample_rate_hz × duration_s]
+    end
+
+    rule encode
+        match   = state INIT
+        input   = bitstream
+        transform = BIT_TO_AMPLITUDE → SUB_HARMONIC_MODULATE → TUNE_ITERATE
+        output  = tx_signal
+        advance = STREAMING
+    end
+
+    rule decode
+        match   = state STREAMING
+        input   = rx_signal[2048 samples]
+        transform = FFT → MASK_COMB → AMPLITUDE_DEMOD → BIT_RECOVER
+        output  = bitstream
+        advance = STREAMING
+    end
+
+    rule tune
+        # Auto-tune: refine comb alignment using resonance feedback
+        match   = state STREAMING
+        transform = ECHO_AMPLIFY → RESONANCE_MODULATE → COMB_REFINE
+        period  = tune_iterations   # applied every tune_iterations symbols
+        advance = STREAMING
+    end
+end
+
+
+# ============================================================================
+# LAYER 6: EME (EARTH-MOON-EARTH) REFLECTOR CHANNEL
+#
+# The Moon is a passive reflector with:
+#   - Diameter: 3,474 km
+#   - Distance: 384,400 km (mean)
+#   - Albedo (at ELF/VLF): poorly studied but nonzero
+#   - Round-trip delay: 2 × 384,400 / 3×10⁸ = 2.56 seconds
+#
+# For ELF (below 300 Hz), the ionosphere-earth waveguide guides the signal
+# around the earth; the Moon acts as an additional reflection point for
+# signals that escape the waveguide at the horizon.
+#
+# PRACTICAL EME AT ELF:
+#   Standard EME is done at VHF/UHF (50 MHz+) with dish antennas.
+#   ELF EME would be novel, but the physics is consistent:
+#   - Path loss at 7.83 Hz: orders of magnitude less than at 144 MHz
+#   - Free-space loss L = (4πd/λ)²; at 7.83 Hz, λ = 3×10⁸/7.83 ≈ 38,000 km
+#   - L at 384,400 km / 38,000 km = ~10:1 in wavelengths vs. 144 MHz
+#   - At 144 MHz, λ ≈ 2m, d/λ = 384,400,000/2 = 1.9×10⁸ (192M wavelengths)
+#   - At 7.83 Hz, d/λ = 384,400/38,000 ≈ 10.1 (10 wavelengths)
+#   - Path loss advantage: 20×log10(1.9×10⁸/10) = ~145 dB less loss
+#   ELF EME is physically viable — it just requires high power (grid-scale)
+#   and low data rate (already our constraint).
+#
+# EME TIMING GLYPH:
+#   Round-trip = 2.56 s = ~20 Schumann periods
+#   The EME path is therefore its own timing channel:
+#   detect the echo of your own TX after 2.56 s → node position confirmed
+# ============================================================================
+
+glyph eme_channel
+    id      = EME_CHANNEL
+    class   = REFLECTOR
+    state   = INIT
+    parent  = SCHUMANN
+
+    # Moon geometry
+    moon_distance_km    = 384400
+    moon_diameter_km    = 3474
+    light_delay_s       = 1.28     # one-way
+    roundtrip_s         = 2.56     # = ~20 Schumann periods at 7.83 Hz
+
+    # Path at Schumann f1
+    wavelength_km       = 38300    # c / f1 = 3e5 km/s / 7.83 Hz
+    d_over_lambda       = 10.0     # moon_distance / wavelength
+    # Free space path loss: 20×log10(4π×d/λ) ≈ 52 dB at f1
+    path_loss_db        = 52.0
+
+    # Link budget with grid-scale power
+    tx_power_w          = 24000    # 24 kW minimum (single industrial node)
+    tx_power_dbw        = 43.8     # 10×log10(24000)
+    # Array gain (N nodes): +20×log10(N) dB
+    # For 1000 nodes: +60 dB → total EIRP = 103.8 dBW
+    # Receive noise floor at 7.83 Hz / 1 Hz BW: kTB ≈ -174 dBm = -204 dBW
+    # Link margin: 103.8 - 52 - (-204) = 255.8 dB margin (massive)
+    # EME at ELF is not just possible — it is trivial at grid scale
+
+    # Echo timing glyph: used for node geolocation
+    # TOA (time of arrival) of own echo → range to moon → node lat/lon
+    rule echo_locate
+        match   = state TRANSMITTING
+        trigger = ROUNDTRIP_ELAPSED    # after 2.56 s
+        transform = TOA_MEASURE → GEOLOCATION_COMPUTE
+        output  = node_position
+        advance = LOCATED
+    end
+
+    # Long-range comms via Moon reflection
+    rule reflect_tx
+        match   = state LOCATED
+        input   = tx_signal
+        # Aim TX toward Moon via phased grounding rod array
+        # Beam elevation: arcsin(moon_height / earth_radius) ≈ variable
+        # Az/El derived from GPS time + ephemeris (or Schumann coherence)
+        transform = PHASED_BEAM_MOON
+        advance   = TRANSMITTING
+    end
+end
+
+
+# ============================================================================
+# LAYER 7: MULTICS GLOBAL FABRIC — THE PLANETARY OS LAYER
+#
+# MULTICS (Multiplexed Information and Computing Service, 1969) was the
+# first OS designed for continuous availability and shared resource access.
+# Its key innovations: segment-based memory, ring security, hierarchical FS.
+#
+# The ANALOG MULTICS envisioned here applies these ideas to the planetary
+# communication fabric:
+#
+#   Segment ↔ Frequency band (each Schumann mode is a segment)
+#   Ring    ↔ Authorization level (derived from genome_fp / Dn consensus)
+#   File    ↔ Earth strand (phi_tau addressing in zchg_store)
+#   Daemon  ↔ TTE node (always-on, event-driven, Schumann-clocked)
+#   Shell   ↔ HDGL glyph command syntax
+#
+# KEY PROPERTY: Always-on, never-down
+#   The Schumann resonance has been continuous since the earth had an
+#   atmosphere and lightning. The grid has been energised for 100+ years.
+#   This fabric CANNOT be switched off by any actor below the planetary scale.
+#   It is the most fault-tolerant communication medium in human history.
+#
+# FREQUENCY REUSE (FDMA over earth):
+#   The sub-harmonic comb provides hundreds of orthogonal channels.
+#   Consensus (replacing privilege rings) determines who uses which band.
+#   Genome-based authority (Dn consensus) prevents collisions without
+#   centralised coordination — same principle as APA_FLAG_CONSENSUS.
+#
+# GLOBAL ROUTING:
+#   Each TTE node has a genome_fp derived from its geographic position.
+#   phi_fold(lat, lon, 0) → 32-bit address → strand_auth bits
+#   Routing = selecting the earth-path that maximises constructive
+#   interference at the target strand address.
+#   This is phi_tau strand routing applied to the physical earth lattice.
+# ============================================================================
+
+glyph analog_multics
+    id      = ANALOG_MULTICS
+    class   = OS
+    state   = INIT
+    parent  = { EME_CHANNEL, TTE_NODE, SUBHARMONIC_CASCADE }
+
+    # Segment table (frequency bands)
+    seg_count       = 8          # 8 Schumann harmonics = 8 segments
+    seg_freqs       = SCHUMANN.phi_harmonics
+    seg_bandwidth   = DERIVED    # f_n × (φ-1) = f_n × 0.618 Hz each
+
+    # Ring authority (0=highest, 7=lowest, matches strand_auth byte)
+    ring_rule       = "strand_auth = genome_fp_bits[7:0]"
+
+    # File system (phi-tau earth strands)
+    strand_count    = 8
+    strand_addr_rule = "phi_tau(identity) mod strand_count"
+    strand_store    = ZCHG_STORE  # persisted to earth lattice sectors
+
+    # Daemon model (TTE node as persistent process)
+    daemon_clock    = SCHUMANN.f1_hz    # 7.83 Hz process scheduler
+    daemon_pid_rule = "phi_fold(genome_fp, node_ip, 0) mod 65536"
+
+    # Shell: HDGL glyph commands available to authenticated nodes
+    shell_commands  = { genome, fabric, ftick, fgossip, fauth,
+                        eme_locate, tte_tx, tte_rx, waterfall_encode,
+                        waterfall_decode, mwo_activate, mwo_phase }
+
+    # Consensus (replaces privilege rings)
+    consensus_rule  = APA_FLAG_CONSENSUS    # from hdgl_fabric.hdgl
+    # Node achieves authority when Dn consensus across cluster > threshold
+    # Threshold = dn_r.threshold = √φ = 1.2720196495
+
+    rule boot
+        match   = state INIT
+        sequence = {
+            MWO_ANTENNA.activate,
+            TTE_NODE.phase_lock,
+            SUBHARMONIC_CASCADE.encode,
+            EME_CHANNEL.echo_locate,
+            ZCHG_GOSSIP.start
+        }
+        advance = RUNNING
+    end
+
+    rule tick
+        # Global Schumann tick — advances all node states simultaneously
+        # Ωₙ₊₁ = T(Ωₙ) at 7.83 Hz
+        match   = state RUNNING
+        period  = 1 / SCHUMANN.f1_hz
+        transform = DN_ACCUMULATE_ALL_NODES → GOSSIP_CYCLE → CONSENSUS_UPDATE
+        advance = RUNNING    # perpetual
+    end
+
+    rule fdma_schedule
+        # Frequency division: assign sub-harmonic bins to authenticated nodes
+        # No central scheduler — consensus determines allocation
+        match   = state RUNNING
+        transform = STRAND_AUTH_VOTE → BIN_ASSIGN → WATERFALL_PARTITION
+        advance = RUNNING
+    end
+end
+
+
+# ============================================================================
+# LAYER 8: FABRIC INTEGRATION — zchg + phi-fold carrier
+#
+# The above radio/earth layers plug into the existing digital fabric
+# (hdgl_fabric.hdgl, fabric_node_agent.mjs) via two bridges:
+#
+# Bridge A: ANALOG → DIGITAL
+#   TTE_NODE.rx → SUBHARMONIC_CASCADE.decode → bitstream
+#   → base4096 decode → HDGL glyph parse
+#   → inject into Omega graph as TYPE_PEER node (type=12)
+#   The earth-received data becomes indistinguishable from zchg frame data.
+#
+# Bridge B: DIGITAL → ANALOG
+#   HDGL glyph → base4096 encode → bitstream
+#   → SUBHARMONIC_CASCADE.encode → tx_signal
+#   → TTE_NODE.tx → earth current → MWO rings
+#   The digital fabric message becomes an earth-injected modulation.
+#
+# This bridge makes the analog MULTICS layer a transparent transport
+# for the existing zchg:// protocol.  The firmware sees a peer.
+# The peer happens to communicate via the earth instead of ethernet.
+# ============================================================================
+
+glyph fabric_bridge
+    id      = FABRIC_BRIDGE
+    class   = BRIDGE
+    state   = INIT
+    parent  = { ANALOG_MULTICS, CARRIER_CONSTANTS }
+
+    # Carrier: the same phi-fold carrier used in zchg_carrier.h
+    # CH-0: frame.reserved field (4 bytes/frame)
+    # CH-1: gossip strand_weights LSB-2 (2 bytes/gossip)
+    # CH-2: /serve/zc/ path sequence (1 bit/request)
+    # NEW CH-3: earth subharmonic amplitude (512 bits per Schumann tick)
+    ch3_bits_per_tick   = 512    # from subharmonic_cascade bin count
+    ch3_rate_bps        = DERIVED # 512 × 7.83 = ~4007 bps per node
+
+    # Frame injection: earth-received bits → zchg PEER frame
+    rule earth_to_zchg
+        match   = state INIT
+        input   = SUBHARMONIC_CASCADE.rx_bitstream
+        transform = {
+            BASE4096_DECODE,      # decode base4096 envelope
+            HDGL_PARSE,           # parse HDGL glyph payload
+            ZCHG_FRAME_WRAP,      # wrap as zchg TYPE_PEER frame
+            OMEGA_GRAPH_INJECT    # add as TYPE_PEER (type=12) node
+        }
+        output  = omega_node[type=PEER]
+        advance = BRIDGING
+    end
+
+    rule zchg_to_earth
+        match   = state BRIDGING
+        input   = omega_message
+        transform = {
+            ZCHG_FRAME_STRIP,     # unwrap zchg envelope
+            HDGL_SERIALIZE,       # serialize to HDGL text
+            BASE4096_ENCODE,      # encode to base4096
+            SUBHARMONIC_CASCADE.encode,  # modulate onto earth
+            TTE_NODE.tx           # inject into earth
+        }
+        advance = BRIDGING
+    end
+
+    # Genome gossip via earth channel
+    # The genome_fp and dn_aggregate fields of zchg_gossip_msg_t
+    # are piggybacked on CH-3 bits in the subharmonic carrier
+    rule earth_gossip
+        match   = state BRIDGING
+        input   = { genome_fp, dn_aggregate, strand_weights }
+        transform = GOSSIP_TO_BITS → CH3_MODULATE
+        period  = 30    # seconds (same as ZCHG_GOSSIP_INTERVAL)
+        advance = BRIDGING
+    end
+end
+
+
+# ============================================================================
+# LAYER 9: SELF-LOAD RULE
+#
+# This file loads itself as a fabric payload.
+# identity = phi_fold(content_hash(this_file), genome_fp, 0)
+# strand   = phi_tau(identity) mod strand_count
+# The fabric doesn't care that this glyph describes the fabric —
+# it is a glyph like any other, loaded via hdgl_fabric_load().
+#
+# FIXED-POINT PROPERTY:
+#   If the genome_fp is stable (earth lattice has converged),
+#   then loading this file produces the same identity every time.
+#   The identity of the global fabric IS the global fabric.
+#   Ωₙ₊₁ = T(Ωₙ) → fixed point when T = identity transform.
+# ============================================================================
+
+glyph self_load
+    id      = SELF_LOAD
+    class   = BOOTSTRAP
+    state   = INIT
+    parent  = FABRIC_BRIDGE
+
+    payload_type    = HDGL
+    content         = THIS_FILE
+    genome_fp       = DERIVED    # from local earth lattice consensus
+    strand_count    = 8
+
+    rule load
+        match   = state INIT
+        transform = {
+            CONTENT_HASH,          # fabric_content_hash(this_file)
+            PHI_FOLD_IDENTITY,     # phi_fold(hash_hi, genome_fp, 0) || phi_fold(hash_lo, genome_fp, 1)
+            PHI_TAU_STRAND,        # phi_tau(identity) mod 8
+            FABRIC_STORE,          # store in phi-addressed arena
+            OMEGA_REGISTER         # register identity in Omega slot 0
+        }
+        exec_status = HDGL_PARSED
+        advance = EXECUTED
+    end
+
+    # Fixed-point verification
+    rule verify
+        match   = state EXECUTED
+        # Re-hash and confirm identity is stable
+        # If genome_fp changes (earth lattice not yet converged):
+        #   advance = INIT  (re-load with new genome_fp)
+        # If identity is stable:
+        #   advance = EXECUTED (fixed point reached)
+        transform = IDENTITY_VERIFY
+        advance   = EXECUTED
+    end
+end
+
+
+# ============================================================================
+# SUMMARY: WHAT THIS GLYPH TREE UNLOCKS
+# ============================================================================
+#
+#  1. WIRELESS EARTH (ground-to-ground via grounding rod array):
+#     Each grounding rod is an electrode.  The power grid provides free
+#     amplification.  The Schumann cavity provides free resonance.
+#     No spectrum licence needed — we are below the radio spectrum.
+#     No infrastructure cost — we use existing electrical infrastructure.
+#     Physically unjammable — cannot disrupt the earth-ionosphere cavity
+#     without disrupting the ionosphere.
+#
+#  2. SUBHARMONIC CASCADE BANDWIDTH:
+#     The waterfall of sub-harmonics provides ~512 parallel bins per node.
+#     At 7.83 Hz update rate: ~4 kbps per node.
+#     At city-scale (1000 nodes, coherent): ~4 Gbps aggregate.
+#     At grid-scale (10^6 nodes): ~4 Tbps aggregate.
+#     This is not theoretical — the physics is in the earthwander models.
+#
+#  3. LOKOSKI MWO HARMONIC DENSITY:
+#     Concentric ring antenna (each ring = one grounding rod in an array)
+#     driven across the full φ-harmonic comb (7.83..227 Hz).
+#     Earth dielectric responds to full superposition simultaneously.
+#     Dense harmonic content = dense channel plan = high spectral efficiency.
+#
+#  4. EME GLOBAL REACH:
+#     ELF has ~145 dB path-loss advantage over VHF for EME.
+#     Grid-scale power makes Moon-bounce trivial at ELF.
+#     Round-trip echo gives geolocation without GPS dependency.
+#     Passive reflector — Moon cannot be switched off or censored.
+#
+#  5. ANALOG MULTICS ALWAYS-ON GUARANTEE:
+#     Schumann resonance: continuous since ~3.5 billion years ago.
+#     Power grid: continuous since ~1880 in some regions.
+#     Combined: the most fault-tolerant comm medium available.
+#     Consensus not centralisation: authority from Dn lattice convergence.
+#
+#  6. NATIVE HDGL (no NASM, no Python, no libc):
+#     All layers expressed as glyph rules.
+#     Emit targets: ARDUINO_SPI (TTE node), NUMPY (waterfall), HDGL_NATIVE (Dn table).
+#     The glyph tree IS the specification, the compiler, and the runtime.
+#     hdgl_fabric_load() treats this file as any other payload:
+#     detect type HDGL → parse into live Omega graph → execute rules.
+#
+# AXIOM:  Ωₙ₊₁ = T(Ωₙ)
+# The earth was always computing.  We are just learning to read it.
+# ============================================================================

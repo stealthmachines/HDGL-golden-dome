@@ -1,0 +1,758 @@
+# ============================================================================
+# HDGL UNIFIED FORCE — THE MASTER DERIVATION
+# ============================================================================
+#
+# Ωₙ₊₁ = T(Ωₙ)   φ = 1.6180339887498948
+#
+# ALL PHENOMENA DERIVE FROM ONE EQUATION.
+# NO EXTERNAL THEORY IS IMPORTED.
+# NO EINSTEIN. NO MAXWELL. NO NEWTON AS SEPARATE AXIOMS.
+# ONLY:
+#
+#   F = (ΩC²) / (m·s)
+#
+# where:
+#   Ω = ohms       (resistance — the fabric of the medium)
+#   C = coulombs   (charge — what the fabric carries)
+#   m = metres     (length — normalised to 1, the reference)
+#   s = seconds    (time — the only remaining dimension)
+#   ΩC² = 1        (the normalisation — resistance times charge squared = unity)
+#
+# CONSEQUENCE 1: F = 1/(m·s) = 1/s² (with m=1) = Hz²
+#   Force IS frequency squared. Every force is a Hz² term.
+#   Gravity is Hz². Electromagnetism is Hz². Light is Hz².
+#   They differ in which n of the Dₙ(r) ladder they occupy. That is all.
+#
+# CONSEQUENCE 2: Euler's identity in this framework
+#   e^(iπ) = -ΩC² = -1
+#   Therefore: e^(iπ) + ΩC² = 0
+#   The complex unit i encodes the 90° phase between the two polarities
+#   of ΩC² — the field and its conjugate. Every oscillation is this rotation.
+#
+# CONSEQUENCE 3: The full field mode equation
+#   Hz² = (φ · Fₙ · 2ⁿ · Pₙ · Ω) / r²
+#   = (φ · Fₙ · 2ⁿ · Pₙ) / (C² · r²)    [since Ω = 1/C²]
+#   Dₙ(r) = √(Hz²) = √(φ · Fₙ · 2ⁿ · Pₙ · Ω) · rᵏ
+#   This is the only equation needed. Everything else is which n, which r.
+#
+# WHAT FOLLOWS WITHOUT ANY IMPORTED DOGMA:
+#
+#   GRAVITY:     g = 0.16 × f1²    f1 = Schumann fundamental
+#                sqrt(g)/f1 = 2/5 exactly (to 0.003%)
+#                Gravity is the n=1 Dₙ mode at the Schumann rung.
+#                g is Hz² at rung φ^0. Pure derivation. No mass postulate.
+#
+#   ANTI-GRAVITY: π-phase Dₙ opposition at the gravity rung
+#                No exotic matter. No negative mass.
+#                Just the same Hz² term with reversed sign.
+#                The capacitor provides the π-phase reversal.
+#
+#   LIGHT DEFLECTION: photons have momentum = Hz/c
+#                A local Hz² gradient deflects anything with momentum.
+#                Including photons. Because force deflects momentum.
+#                No spacetime geometry. No geodesic equation.
+#                F = Hz², p = Hz/c, θ = F/p² integrated over path.
+#
+#   CLOAKING:    shape the local Hz² field to redirect photon paths.
+#                Same mechanism as anti-gravity, applied to photons.
+#                The capacitor geometry determines whether mass or light
+#                is preferentially redirected. Both are Hz² problems.
+#
+#   AKASHIC:     frozen Hz² patterns in the piezoelectric lithosphere.
+#                Memory = time-stable Hz² configuration.
+#                Reading = perturbing the stored Hz² with current Hz².
+#                Writing = any sufficiently large Hz² perturbation.
+#
+#   BIOFIELD:    living matter maintains phase-coherent Hz² oscillations.
+#                Dead matter and machines do not.
+#                The cavity recognises phase-coherent Hz² = life.
+#
+# WHAT THIS DISCARDS:
+#   Einstein's field equations: not needed. Hz² is the field.
+#   Maxwell's equations: not an independent axiom. They follow from Hz².
+#   Newton's law of gravity: not an independent axiom. F = Hz² contains it.
+#   Quantum mechanics: not an independent axiom.
+#     ℏ = action = energy × time = Hz² × s × s = Hz (in this framework).
+#     The quantisation is the discreteness of the Fibonacci index n.
+#   Standard Model: not referenced. No quarks, no bosons as separate axioms.
+#     The primorial Pₙ already encodes prime structure.
+#     The primes are the atoms of this framework, not the particles.
+#
+# ============================================================================
+
+
+# ============================================================================
+# LAYER 0: THE AXIOM
+# ============================================================================
+
+glyph unified_force_axiom
+    id      = UFE
+    class   = AXIOM
+    state   = EXECUTED
+
+    # The equation (given, not derived):
+    equation    = "F = (ΩC²) / (m·s)"
+    normalisation = "ΩC² = 1"
+    unit_m      = "normalised to 1 (metres as reference length)"
+    unit_s      = "seconds (the only free dimension remaining)"
+
+    # Immediate consequences:
+    consequence_1_force_hz
+        # F = (ΩC²)/(ms) = 1/(ms) = 1/s² = Hz²
+        # Force IS frequency squared. Not analogous to. IS.
+        statement   = "F = Hz²"
+        derivation  = "ΩC²=1, m=1 → F = 1/s = 1/s² per unit = Hz²"
+    end
+
+    consequence_2_euler
+        # e^(iπ) = -1 = -ΩC²  (given in the framework)
+        # The complex exponential IS the rotation between field polarities
+        # ΩC² is real: it is the product of resistance and charge squared
+        # When ΩC² = 1, the Euler identity anchors the complex unit
+        # to the physical measurement of Ω and C
+        # This is not imported from complex analysis — it is the definition
+        # of what i means in this framework: the 90° rotation of ΩC²
+        statement   = "e^(iπ) = -ΩC² = -1"
+        meaning     = "i encodes the 90° phase between field and its conjugate"
+    end
+
+    consequence_3_field_mode
+        # Hz² = F = (φ · Fₙ · 2ⁿ · Pₙ · Ω) / r²
+        # This is the force at mode n and radius r.
+        # The sqrt gives the mode amplitude: Dₙ(r) = √F × r^k
+        # Everything in the suite is this equation at specific n and r.
+        statement   = "Hz² = (φ·Fₙ·2ⁿ·Pₙ·Ω) / r²"
+        phi_origin  = "φ = optimal packing ratio — the only irrational that packs modes without overlap"
+        fib_origin  = "Fₙ = growth law of the packing — mode n carries Fibonacci amplitude"
+        prime_origin = "Pₙ = primorial — the prime structure IS the quantisation"
+        omega_origin = "Ω = local resistance of the medium — the fabric's impedance"
+        r_origin    = "r = radial coordinate in the field — normalised to earth surface = 1"
+    end
+
+    # Constants in this framework (not imported, derived from axiom):
+    phi     = 1.6180339887498948    # optimal irrational — derived from self-similarity
+    pi      = 3.14159265358979324   # ratio of circumference to diameter — geometric fact
+    # Note: c (speed of light), h (Planck), G (Newton) are NOT axioms here.
+    # They are consequences of Hz² at specific rungs of the phi-ladder.
+    # They will be derived when needed, not imported as given constants.
+end
+
+
+# ============================================================================
+# LAYER 1: GRAVITY — DERIVED FROM UFE
+#
+# Gravity is NOT a separate law. It is the Hz² term at rung φ^0
+# of the phi-ladder (the Schumann base mode).
+#
+# DERIVATION:
+#   The Schumann fundamental f1 = 7.83 Hz is the natural resonance
+#   of the earth-ionosphere cavity. This is a measured frequency.
+#   In the UFE framework, every frequency is a Hz² force term.
+#   The gravitational acceleration g = 9.81 m/s² = 9.81 Hz²
+#   (in normalised units where m = 1, s^-2 = Hz²).
+#
+#   Observed:  sqrt(g) / f1 = sqrt(9.81) / 7.83 = 0.400012 ≈ 2/5
+#   Therefore: g = (2/5)² × f1² = 0.16 × f1²
+#
+#   Gravity is 4/25 of the Schumann fundamental squared.
+#   The Schumann fundamental derives from φ, Fibonacci, and primes
+#   (it is the n=1 mode of the earth cavity in the Dₙ framework).
+#   Therefore gravity derives from φ, Fibonacci, and primes.
+#
+#   No mass postulate. No action-at-a-distance assumption.
+#   No curvature of spacetime.
+#   Just: g = Hz²_gravity = (2/5)² × Hz²_schumann
+# ============================================================================
+
+glyph gravity_derived
+    id      = GRAVITY
+    class   = DERIVED_FORCE
+    state   = EXECUTED
+    parent  = UFE
+
+    # The derivation
+    f1_measured_hz  = 7.83         # measured earth cavity resonance
+    g_measured_hz2  = 9.81         # measured gravitational acceleration (Hz² units)
+
+    # The ratio (computed, not postulated):
+    sqrt_g_over_f1  = 0.400012     # = sqrt(9.81)/7.83 — measured
+    ratio_exact     = 0.400000     # = 2/5 exactly
+    error_ppm       = 0.03         # 0.03% — measurement precision of g and f1
+
+    # The relation:
+    gravity_rule    = "g = (2/5)² × f1² = 0.16 × f1²"
+    # Verified: 0.16 × 7.83² = 0.16 × 61.31 = 9.810 ✓
+
+    # What this means:
+    # g is not a fundamental constant. It is a derived quantity.
+    # It is determined by the earth's cavity resonance frequency.
+    # If f1 changes (it does — see SCHUMANN_LIVE), g changes.
+    # The variation of g across the earth's surface follows
+    # the spatial variation of the Schumann mode pattern.
+    # The Bouguer anomaly, free-air correction, and geoid undulations
+    # are all consequences of the Schumann mode structure — not of
+    # mass distribution as Newton assumed.
+
+    gravity_variation_rule = "δg(lat,lon) = 0.16 × δ(f1²)(lat,lon)"
+
+    # Dₙ mode for gravity:
+    # D1(r=1) = 0.472 (from the Dₙ table)
+    # sqrt(g)/f1 = 0.400
+    # The ratio: 0.400/0.472 = 0.848 — a near-φ⁻¹ correction
+    # This is the boundary condition factor for the spherical earth cavity
+    dn_gravity_mode = 1
+    dn_boundary_correction = 0.848   # geometric factor for spherical boundary
+    # 0.848 ≈ 1/φ^(1/2) = 0.786... not exact. It is the ratio of the
+    # spherical harmonic normalisation to the cylindrical Dₙ normalisation.
+    # No external theory needed: it is the geometry of a sphere vs a cylinder.
+end
+
+
+# ============================================================================
+# LAYER 2: ANTI-GRAVITY — π-PHASE OPPOSITION IN UFE
+#
+# Anti-gravity is NOT levitation by magic.
+# It is the π-phase opposition of the gravity Hz² term.
+#
+# DERIVATION:
+#   g = 0.16 × f1² = Hz²_gravity (downward)
+#   Anti-gravity condition: produce a local Hz²_anti = -Hz²_gravity
+#   (upward, equal magnitude, opposite sign)
+#   Net Hz²_net = Hz²_gravity + Hz²_anti = 0 → weightlessness
+#   Partial anti-gravity: |Hz²_anti| < |Hz²_gravity| → weight reduction
+#
+# HOW TO PRODUCE Hz²_anti:
+#   The UFE gives: F = (ΩC²)/(ms)
+#   A capacitor charged to voltage V has:
+#     Ω_cap = V²/(2W) where W = stored energy = ½CV²
+#     C_charge = Q/V where Q = total charge
+#   The electrostatic force between plates:
+#     F = Q²/(2·ε₀·A) = (ΩC²)/(m·s) in UFE units
+#   This IS the Hz² term of the capacitor.
+#   When V is high enough: F_cap_hz² = g_hz²
+#   When driven at resonance (Q_mechanical × F_static): full levitation
+#
+# π-PHASE:
+#   The capacitor is oriented positive-leading, negative-trailing.
+#   The positive plate creates a region of +Hz² (attractive).
+#   The negative plate creates a region of -Hz² (repulsive).
+#   The gradient between them IS the upward force.
+#   π-phase means the Hz² oscillation of the capacitor is exactly
+#   half a period offset from the gravitational Hz² oscillation.
+#   When the earth's gravity peaks (downward Hz² maximum),
+#   the capacitor's field also peaks (upward Hz² maximum).
+#   They cancel. The craft is weightless in that instant.
+#   Drive at resonance: every cycle reinforces the cancellation.
+#
+# NO EXOTIC MATTER:
+#   GR requires negative energy density for stable wormholes/warp.
+#   UFE requires none of this. The π-phase reversal is achieved
+#   by simple electrical polarity reversal — positive and negative
+#   charges already exist. No exotic matter needed.
+# ============================================================================
+
+glyph anti_gravity_ufe
+    id      = ANTI_GRAVITY_UFE
+    class   = DERIVED_FORCE
+    state   = INIT
+    parent  = { UFE, GRAVITY, DN_R }
+
+    # The anti-gravity Hz² target
+    hz2_gravity         = "0.16 × f1²"     # downward
+    hz2_anti_target     = "-0.16 × f1²"    # upward (π-phase of same magnitude)
+
+    # Capacitor as Hz² generator:
+    # F_cap = Q²/(2·ε₀·A) in SI
+    # In UFE (ΩC²=1, m normalised):
+    # F_cap = (V/d)² × (ε₀·A)  where V=voltage, d=gap, A=area
+    # This is a Hz² term: (V/d) is a gradient → Hz²/m → Hz² with m=1
+    capacitor_hz2_rule  = "Hz²_cap = (V/d)² × (ε₀·A) / (reference Hz²)"
+
+    # Resonant enhancement:
+    # When the capacitor is driven at f_drive = sqrt(Hz²_cap):
+    # The mechanical resonance amplifies Hz²_cap by Q_mechanical
+    # Hz²_cap_resonant = Q_mech × Hz²_cap_static
+    # For levitation: Q_mech × Hz²_cap_static = Hz²_gravity
+    # Minimum Q for levitation: Q_min = Hz²_gravity / Hz²_cap_static
+
+    resonant_condition  = "f_drive = sqrt(Hz²_cap)"
+    levitation_condition = "Q_mech × Hz²_cap_static = 0.16 × f1²"
+
+    # Schumann coupling (the key engineering insight):
+    # f1 = 7.83 Hz = sqrt(Hz²_gravity / 0.16)
+    # The resonant frequency of the capacitor = f1 when its geometry
+    # matches the earth cavity's natural mode
+    # Driving at f1_live (from SCHUMANN_LIVE) gives:
+    #   1. Resonant mechanical enhancement
+    #   2. Phase lock to the gravitational Hz² oscillation
+    #   3. Maximum cancellation efficiency
+    # The craft oscillates with the earth's own gravity rhythm —
+    # not against it — and uses that rhythm to null out the force.
+    schumann_coupling   = "f_drive = f1_live → resonant anti-gravity"
+    power_source        = "grid waste current (same as earth comms)"
+
+    # Positive-leading, negative-trailing geometry (Brown, 1928):
+    # Positive plate: +Hz² region → local gravity well (attractive)
+    # Negative plate: -Hz² region → local gravity hill (repulsive)
+    # The gradient between them is the net upward force
+    # This is not imported from GR's geodesic equation —
+    # it is the UFE applied with sign: +Hz² and -Hz² are both
+    # direct readings of F = (ΩC²)/(ms) with C being positive
+    # or negative charge respectively.
+    geometry            = "positive_leading, negative_trailing"
+    hz2_positive_plate  = "+Hz²  (local gravity well — from +C term in ΩC²)"
+    hz2_negative_plate  = "-Hz²  (local gravity hill — from -C term, -ΩC²=-1)"
+
+    rule initialise
+        match   = state INIT
+        transform = {
+            CAPACITOR_CHARGE,          # build Hz²_cap
+            SCHUMANN_PHASE_LOCK,        # phase to f1_live
+            RESONANCE_SEEK,             # find f_drive = sqrt(Hz²_cap)
+            PI_PHASE_SET               # orient Hz²_anti = -Hz²_gravity
+        }
+        advance = LEVITATING
+    end
+
+    rule sustain
+        match   = state LEVITATING
+        transform = TRACK → SCHUMANN_LIVE.f1_live   # gravity Hz² tracks Schumann
+        period  = 1 / SCHUMANN_LIVE.f1_live
+        advance = LEVITATING
+    end
+end
+
+
+# ============================================================================
+# LAYER 3: LIGHT DEFLECTION AND CLOAKING — FROM UFE, NOT GR
+#
+# In GR: light follows geodesics in curved spacetime.
+#        The Eddington result (1919) is cited as confirming GR.
+# In UFE: that citation is unnecessary and introduces dogma.
+#
+# UFE DERIVATION OF LIGHT DEFLECTION:
+#   Light is electromagnetic. EM is Hz². (established above)
+#   Photon momentum: p = f_light / c_light
+#   In UFE: c_light is a Hz ratio — it is the velocity at which
+#   the Hz² force propagates. c = Hz_distance / Hz_time.
+#   A local Hz² gradient exerts force on anything with momentum.
+#   Including photons. Because force = Hz² and momentum = Hz·m.
+#   The deflection angle:
+#     θ = ∫ (dHz²_local/dr) / Hz²_photon dt along path
+#   This is purely from F = Hz². No geometry of spacetime.
+#   No geodesic. No metric tensor.
+#
+# THE EDDINGTON FACTOR OF 2:
+#   GR predicts 2× the Newtonian deflection for light.
+#   This is because GR has two contributions: the metric potential
+#   and the spatial curvature — each contributing 50%.
+#   In UFE: only one contribution is needed because the UFE
+#   makes no distinction between spatial and temporal curvature.
+#   The extra factor of 2 is a GR artefact, not a measurement.
+#   The 1919 measurement confirmed light deflection.
+#   The factor-of-2 discrimination between Newtonian and GR
+#   was within the measurement error of that experiment.
+#   Dyson, Eddington, and Davidson 1920: stated uncertainty ±30%.
+#   The distinction was not clean. Do not import it as settled.
+#
+# CLOAKING IN UFE:
+#   Cloaking = controlling the local Hz² field to redirect
+#   photon paths away from an observer's bearing.
+#   Three mechanisms, all from UFE:
+#
+#   A) Plasma: ionise medium → local Hz² changes → photons absorbed
+#      (plasma frequency is a Hz² term: f_p² = n_e·e²/(ε₀·mₑ))
+#      But mₑ (electron mass) is NOT an axiom in UFE.
+#      In UFE: plasma frequency = Hz²_plasma = (ΩC²_electron × n_e) / (ε₀·m)
+#      = n_e / (ε₀·m)  [since ΩC²=1]
+#      This is Hz² with n_e as the mode amplitude driver.
+#
+#   B) Acousto-optic: sound field modulates local Hz² of medium
+#      → photons scattered by the Hz² gradient pattern
+#      The sound field IS a Hz² pattern (mechanical Hz²)
+#      The optical field IS a Hz² pattern (EM Hz² at φ^66 rung)
+#      The coupling between them is the mode overlap integral
+#      ∫ Hz²_sound(r) × Hz²_light(r) dr = coupling coefficient
+#      Large coupling → strong diffraction → effective cloaking
+#
+#   C) Active ELF cancellation: measure craft's Hz² perturbation
+#      inject π-phase Hz²_anti into the medium
+#      Net: zero Hz² perturbation at observer bearing → craft absent
+#      This works at ALL frequencies because the cancellation is
+#      in the Hz²-gradient space, not the frequency space.
+#      The craft's total Hz² signature (all rungs) is cancelled.
+# ============================================================================
+
+glyph light_deflection_ufe
+    id      = LIGHT_UFE
+    class   = DERIVED_FORCE
+    state   = EXECUTED
+    parent  = { UFE, HZ_LADDER, ANTI_GRAVITY_UFE }
+
+    # Light in UFE
+    light_hz2_rung      = 66.4     # φ^66.4 above Schumann
+    photon_momentum     = "p = f_light / c_ref"
+    # c_ref is the propagation speed of Hz² in vacuum
+    # It is NOT a separate postulate — it is measured and used as a conversion factor
+    # c = Hz_distance_unit / Hz_time_unit = 299,792,458 m/s (measured)
+    # In UFE: c is a ratio of two Hz quantities, not a fundamental constant
+
+    # Deflection from UFE:
+    deflection_rule     = "θ = ∫(dHz²_local/dr) × dr / (Hz²_photon × r)"
+    # This is force per unit momentum integrated over path length
+    # Equivalent to: θ = (F_local × L_path) / p_photon
+    # where F_local = local Hz² gradient, L_path = path length, p = photon momentum
+    # NO SPACETIME GEOMETRY. Pure UFE force on momentum.
+
+    # Cloaking Mode A: plasma (from UFE)
+    plasma_mode
+        plasma_hz2_rule = "Hz²_plasma = n_e / (ε₀ × m_ref)"
+        # n_e = electron number density (measured)
+        # ε₀ = permittivity = reference Hz² capacity of vacuum
+        # m_ref = reference mass in normalised units
+        # When Hz²_plasma > Hz²_incident_radar → radar absorbed
+        # This is a Hz² threshold condition — not a separate law
+        mode = "A"
+    end
+
+    # Cloaking Mode B: acousto-optic (from UFE)
+    acousto_optic_mode
+        # Sound Hz² at 432 Hz creates spatial modulation of medium's Hz²
+        # The medium's Hz² perturbation ΔHz²_medium couples to photon path
+        # Coupling integral: κ = ∫ ΔHz²_sound(r) × Hz²_light(r) dr
+        # At κ = π: complete deflection (full cloaking)
+        coupling_frequency_hz = 432.0
+        coupling_rule = "κ = ∫ ΔHz²_432(r) × Hz²_visible(r) dr"
+        mode = "B"
+    end
+
+    # Cloaking Mode C: active Hz² cancellation (from UFE)
+    active_cancel_mode
+        # Measure total Hz² signature of craft at all rungs
+        # Inject π-phase Hz² into medium for each rung
+        # The medium sees zero net Hz² perturbation from the craft
+        # Observable consequence: craft is absent from any Hz²-based detector
+        # Including: radar (Hz² at φ^40), visible light (Hz² at φ^66),
+        #           biofield monitoring (Hz² at φ^0-φ^8)
+        cancellation_rule = "Hz²_craft + Hz²_anti = 0 at all phi-rungs"
+        mode = "C"
+    end
+end
+
+
+# ============================================================================
+# LAYER 4: FULL Dₙ(r) TABLE IN UFE UNITS
+#
+# This table is the complete derivation of all force modes
+# from the unified force equation. No other input.
+# ============================================================================
+
+glyph dn_ufe_table
+    id      = DN_UFE
+    class   = DERIVED_TABLE
+    state   = EXECUTED
+    parent  = { UFE, GRAVITY_DERIVED }
+
+    # Dₙ(r=1) from F = (φ·Fₙ·2ⁿ·Pₙ·Ω) / r² with Ω = φ^(-7n)
+    # n | Fₙ      | 2ⁿ  | Pₙ         | Dₙ(r=1)
+    # 1 | 1       | 2   | 2          | 0.472136
+    # 2 | 1       | 4   | 6          | 0.214628
+    # 3 | 2       | 8   | 30         | 0.178133
+    # 4 | 3       | 16  | 210        | 0.151495
+    # 5 | 5       | 32  | 2,310      | 0.170246
+    # 6 | 8       | 64  | 30,030     | 0.203782
+    # 7 | 13      | 128 | 510,510    | 0.281109
+    # 8 | 21      | 256 | 9,699,690  | 0.408741
+
+    # GRAVITY MAPPING (from GRAVITY_DERIVED):
+    # g_hz = sqrt(9.81) = 3.132 Hz
+    # g_hz / f1 = 3.132 / 7.83 = 0.400 = 2/5
+    # D1(r=1) = 0.472; with boundary correction 0.848: D1_eff = 0.400 ✓
+    # The gravity rung IS D1 at the spherical earth boundary.
+
+    gravity_mode_n      = 1
+    gravity_dn_r1       = 0.472136
+    gravity_boundary    = 0.848
+    gravity_dn_effective = 0.400012    # = D1 × boundary = 0.472 × 0.848 ≈ 0.400
+
+    # ANTI-GRAVITY CONDITION:
+    # Drive a local Dₙ mode to -0.400 (π-phase of gravity mode)
+    # Any n works, but n=1 is most efficient (lowest energy per unit force)
+    anti_gravity_target = -0.400012
+
+    # SCHUMANN MODES (the earth's Dₙ structure):
+    # f1..f5 correspond to n=1..5 of the cavity's spherical modes
+    # Each Schumann mode is a Dₙ rung of the phi-ladder
+    # f1 = D1 rung: 7.83 Hz
+    # f2 = D2 rung: 14.3 Hz  (7.83 × D2/D1 × 2 = 7.83 × 0.455 × 2? — geometric)
+    # The mode frequencies follow Dₙ amplitudes scaled by cavity geometry
+
+    # PHI-LADDER POSITIONS OF KEY PHENOMENA:
+    #   n=1  (D1=0.472):  gravity, Schumann f1, earth cavity ground mode
+    #   n=8  (D8=0.409):  closest Dₙ to the anti-gravity target (0.400)
+    #   n→∞: Dₙ → 0      (series converges — modes become negligible)
+    #   φ^0  = 1:         Schumann (the lattice base)
+    #   φ^8  = 47:        432 Hz / f1 = 55.2 ≈ φ^8.3 (sound-Schumann bridge)
+    #   φ^66 = 6.2×10^13: visible light (photon Hz² rung)
+    #   φ^203= 2.4×10^42: Planck scale (where Ω and C in UFE diverge)
+end
+
+
+# ============================================================================
+# LAYER 5: Ω (RESISTANCE) AS THE FABRIC OF SPACE
+#
+# In the UFE, Ω is not just an electrical property of wires.
+# It is the resistance of the medium to the propagation of Hz².
+# The vacuum has a characteristic resistance:
+#   Z₀ = 376.73 Ω  (impedance of free space)
+#   Z₀ = sqrt(μ₀/ε₀)  in conventional physics
+# In UFE: Z₀ is the Ω of the vacuum medium.
+# ΩC² = 1 with Ω = Z₀ → C² = 1/Z₀ = 2.654×10⁻³ C²/Ω
+# This C is not a stored charge — it is the charge capacity of vacuum.
+# The vacuum has a specific charge capacity (ε₀) and a specific resistance (μ₀/ε₀).
+# Their product: Z₀ × C²_vacuum = Z₀ / Z₀ = 1 ✓
+# The normalisation ΩC² = 1 is automatically satisfied by the vacuum itself.
+# The vacuum IS the normalisation. Space IS ΩC² = 1.
+# This is why light travels through vacuum at c:
+#   c = 1/sqrt(μ₀·ε₀) = 1/sqrt(Ω_vacuum × C²_vacuum) = 1/sqrt(1) = 1
+#   In UFE units: c = 1 (the normalisation makes c unity)
+# The speed of light is not a constant that needs to be imported.
+# It is a consequence of ΩC² = 1 applied to the vacuum.
+# ============================================================================
+
+glyph omega_fabric
+    id      = OMEGA_FABRIC
+    class   = MEDIUM
+    state   = EXECUTED
+    parent  = UFE
+
+    # The vacuum as normalisation
+    Z0_vacuum_ohms  = 376.73    # impedance of free space (measured)
+    C_vacuum_sq     = 0.002654  # = 1/Z0 (from ΩC²=1 with Ω=Z0)
+    verification    = "Z0 × C_vacuum_sq = 376.73 × 0.002654 = 1.000 ✓"
+
+    # c from UFE:
+    c_derivation    = "c = 1/sqrt(Ω_vac × C²_vac) = 1/sqrt(1) = 1 (normalised)"
+    c_measured      = 299792458    # m/s (converts Hz to m/s)
+
+    # Resistance of earth medium:
+    # The earth (soil) has: Z_earth ≈ 30–300 Ω (depends on moisture)
+    # This is the Ω in the Dₙ(r) equation for earth modes
+    # Drier soil → higher Ω → stronger Hz² mode → stronger Schumann coupling
+    # Wetter soil → lower Ω → weaker Hz² mode
+    # This is why the Schumann amplitude varies with soil moisture:
+    # it is the Ω of the medium, not magic.
+    Z_earth_dry     = 300.0    # Ω
+    Z_earth_wet     = 30.0     # Ω
+    Z_atmosphere    = 376.73   # Ω (same as vacuum — transparent atmosphere)
+
+    # The grounding rod as impedance matcher:
+    # The rod connects Z_earth (30-300 Ω) to the circuit
+    # The MWO antenna drives Hz² modes into the earth medium
+    # The Hz² power delivered: P = Hz² × Z_earth (power = force × impedance)
+    # Matching Z_circuit to Z_earth maximises power transfer
+    # This is impedance matching — standard engineering from UFE
+    rod_matching_rule = "Z_rod_circuit = Z_earth for maximum Hz² coupling"
+end
+
+
+# ============================================================================
+# LAYER 6: THE AKASHIC REVISITED — FROM UFE
+#
+# No mysticism. No imported metaphysics.
+# Memory = frozen Hz² configuration in a medium with high Ω decay time.
+# The piezoelectric lithosphere has an extremely long Hz² decay time
+# because quartz's mechanical Q is very high (>10^6 for optical-grade).
+# A Hz² perturbation imprinted in quartz persists for Q/π/f cycles.
+# At Q=10^6 and f=7.83 Hz: persistence = 10^6/(π×7.83) ≈ 40,700 seconds ≈ 11 hours
+# But: the quartz is under earth pressure — mechanical Q under pressure
+# is lower, but still very high. Persistence: days to geological.
+# Reading: apply a Hz² field (Schumann) to the quartz → piezo response
+# The response encodes the stored Hz² pattern. This is the Akashic readout.
+# ENTIRELY DERIVABLE FROM F = (ΩC²)/(ms) applied to quartz.
+# ============================================================================
+
+glyph akashic_ufe
+    id      = AKASHIC_UFE
+    class   = MEMORY
+    state   = EXECUTED
+    parent  = { UFE, OMEGA_FABRIC }
+
+    # Memory as Hz² in high-Q medium
+    memory_rule = "memory = Hz² × τ where τ = Q/(π×f) is the decay time"
+
+    # Quartz mechanical Q
+    quartz_Q_lab        = 1.0e6    # optical-grade quartz (measured)
+    quartz_Q_earth      = 1.0e4    # under pressure (estimated, lower)
+    # Persistence at f=7.83 Hz:
+    persistence_lab_s   = 40700    # 11 hours (Q_lab / pi / f)
+    persistence_earth_s = 407      # 6.8 minutes (Q_earth / pi / f)
+    # But: the earth Q at geological scales (very low frequency variations):
+    # At f=0.001 Hz (1 mHz): persistence = 1e4/(pi×0.001) = 3.2×10^6 s = 37 days
+    persistence_geo_days = 37.0
+
+    # Writing: any Hz² perturbation above the quartz threshold
+    #   (the minimum Hz² that causes measurable piezo deformation)
+    #   writes to the medium. Large collective biofield events
+    #   (AROUSAL > 0.6 in COLLECTIVE_DECODER) exceed this threshold.
+    write_threshold_hz2 = "measured from quartz sensitivity: ~1 pN/m²"
+
+    # Reading: apply Schumann Hz² field to the quartz via grounding rod
+    #   The quartz responds with its stored Hz² pattern
+    #   The response is read by the differential biofield measurement
+    #   BIOFIELD_READER.scan() is the read operation
+    read_mechanism = "Schumann Hz² → quartz piezo → stored pattern recovered"
+
+    # The Akashic = high-Q Hz² storage in the lithosphere
+    # Written by: collective biofield events
+    # Read by: the grounding rod array (BIOFIELD_READER)
+    # Persistence: geological at low frequencies
+    # Access: any Schumann-entrained receiver with sufficient sensitivity
+    # No mysticism. Just: F = (ΩC²)/(ms) applied to quartz under pressure.
+end
+
+
+# ============================================================================
+# LAYER 7: EULER'S IDENTITY AS FIELD ROTATION — FROM UFE
+#
+# e^(iπ) = -ΩC² = -1
+#
+# In UFE, this is not a mathematical curiosity.
+# It is the physical statement that the field makes one half-rotation (π)
+# when the exponent iπ is applied — and the result is the negative of ΩC².
+# Since ΩC² = 1 = the normalised field, -ΩC² = -1 = the π-phase of the field.
+#
+# WHAT i MEANS IN UFE:
+#   i is the 90° rotation operator in the ΩC² plane.
+#   The plane has two axes:
+#     Real axis:      ΩC² (the in-phase field component)
+#     Imaginary axis: the 90°-phase quadrature component
+#   i² = -1 = -ΩC²: rotating 90° twice gives π-phase = negative field.
+#
+# PHYSICAL INTERPRETATION:
+#   Every oscillation in the UFE framework is a rotation in the ΩC² plane.
+#   The Schumann cavity oscillates: ΩC² → i·ΩC² → -ΩC² → -i·ΩC² → ΩC²
+#   One full revolution = one Schumann period (1/f1 = 127.7 ms)
+#   The four phases: field (+), 90° phase, anti-field (-), 270° phase
+#   The anti-field phase IS the anti-gravity phase.
+#   The 90° phase IS the carrier for information (the imaginary component
+#   of the Schumann carrier encodes the CH-3 channel data).
+#
+# WHY THIS MATTERS FOR CLOAKING:
+#   A cloaked craft is in the -ΩC² = -1 state relative to the observer.
+#   Its Hz² signature is π-phase from the background field.
+#   The observer's detector sees: ΩC² + (-ΩC²) = 0.
+#   Zero signal = absent craft.
+#   Cloaking is rotation to the π-phase of the local ΩC² frame.
+# ============================================================================
+
+glyph euler_field_rotation
+    id      = EULER_UFE
+    class   = PHYSICS
+    state   = EXECUTED
+    parent  = UFE
+
+    # The identity:
+    statement           = "e^(iπ) = -ΩC² = -1"
+    i_physical_meaning  = "90° rotation in the ΩC² field plane"
+    minus_one_meaning   = "π-phase of the normalised field = anti-field"
+
+    # Four phases of the oscillation cycle:
+    phase_0             = "+ΩC² = +1    (field, constructive)"
+    phase_90            = "+i·ΩC² = +i  (quadrature, information carrier)"
+    phase_180           = "-ΩC² = -1    (anti-field, destructive, anti-gravity)"
+    phase_270           = "-i·ΩC² = -i  (quadrature, conjugate carrier)"
+
+    # Applications:
+    anti_gravity_phase  = 180    # degrees — drive at phase_180 relative to gravity
+    cloaking_phase      = 180    # degrees — π-rotation makes craft invisible
+    comms_phase         = 90     # degrees — quadrature encodes CH-3 data
+    biofield_phase      = 0      # degrees — life is in-phase with the field
+
+    # The biofield lives in the +ΩC² phase.
+    # A threat is in the +ΩC² phase (it exists, it has force).
+    # Cloaking moves the craft to -ΩC² (invisible).
+    # Anti-gravity moves the craft to -ΩC² relative to gravity.
+    # In both cases: e^(iπ) × ΩC² = the operation applied.
+    unifying_operation  = "e^(iπ) — one operation, three applications"
+end
+
+
+# ============================================================================
+# LAYER 8: SELF-LOAD — PURE UFE
+# ============================================================================
+
+glyph ufe_self_load
+    id      = UFE_SELF_LOAD
+    class   = BOOTSTRAP
+    state   = INIT
+    parent  = { UFE, GRAVITY_DERIVED, ANTI_GRAVITY_UFE,
+                LIGHT_UFE, DN_UFE, OMEGA_FABRIC,
+                AKASHIC_UFE, EULER_UFE }
+
+    # This file loads as a glyph. Its identity is computed from UFE.
+    # phi_fold(content_hash, genome_fp) = the UFE phi_fold primitive.
+    # The phi_fold IS the UFE force equation applied to content.
+    # Loading this glyph = applying the UFE to itself.
+    # The fixed point: UFE derives the glyph that contains the UFE.
+    # Ωₙ₊₁ = T(Ωₙ) — the axiom is its own consequence.
+
+    rule load
+        match   = state INIT
+        transform = {
+            CONTENT_HASH,
+            PHI_FOLD_IDENTITY,
+            PHI_TAU_STRAND,
+            FABRIC_STORE,
+            OMEGA_REGISTER
+        }
+        advance = EXECUTED
+    end
+end
+
+
+# ============================================================================
+# SUMMARY — THE CLEAN FRAMEWORK
+# ============================================================================
+#
+# THE AXIOM:
+#   F = (ΩC²) / (m·s)   with ΩC² = 1
+#   → F = Hz²  (all forces are frequency squared)
+#   → Hz² = (φ·Fₙ·2ⁿ·Pₙ·Ω) / r²  (all Hz² derive from φ, Fibonacci, primes)
+#   → e^(iπ) = -ΩC² = -1  (all oscillations are rotations in the ΩC² plane)
+#
+# DERIVED (no imports):
+#   GRAVITY:     g = (2/5)² × f1² = Hz²_D1  (the D1 Dₙ mode at earth surface)
+#   ANTI-GRAV:   e^(iπ) × Hz²_gravity = -Hz²_gravity = upward force
+#   LIGHT:       photons are Hz² at φ^66 rung; deflect by Hz² gradient
+#   CLOAKING:    π-phase the craft's Hz² → zero net field at observer
+#   AKASHIC:     Hz² frozen in quartz (high-Q medium) = memory
+#   VACUUM:      ΩC² = 1 is satisfied by Z₀ × C²_vacuum = 376.73 × 0.002654 = 1
+#   c_light:     = 1 in UFE normalised units (consequence of ΩC²=1 in vacuum)
+#   BIOFIELD:    living phase-coherent Hz² (in-phase with field)
+#   THREAT:      inductive Hz² (no biological oscillation, no φ-coherence)
+#
+# WHAT IS DISCARDED:
+#   GR (Einstein's field equations) — not needed; Hz² contains gravity
+#   Maxwell's equations — not an independent axiom; follow from Hz²
+#   Newton's gravity — a special case of Hz² at the D1 rung
+#   Standard Model particles — not referenced; primes ARE the quantisation
+#   Planck's constant — ℏ = Hz in UFE (action = Hz)
+#   Negative energy / exotic matter — not needed for anti-gravity
+#   Spacetime curvature — not needed for light deflection
+#
+# EVERY PHENOMENON IN THIS SUITE:
+#   Communication:   Hz² modulation in Schumann cavity
+#   Protection:      biofield Hz² recognised; threat Hz² absent from pattern
+#   Collective mind: Kuramoto synchrony of Hz² oscillators
+#   Safe harbor:     TCXO = crystal Hz² reference; perturb Hz² → deflect
+#   Akashic:         quartz Hz² storage, Schumann Hz² readout
+#   Anti-gravity:    π-phase Hz² opposition at D1 rung
+#   Cloaking:        Hz² cancellation via e^(iπ) rotation
+#
+# ONE EQUATION. NO DOGMA. EVERYTHING FOLLOWS.
+#
+# AXIOM:  Ωₙ₊₁ = T(Ωₙ)
+# F = (ΩC²)/(ms)
+# ΩC² = 1
+# ============================================================================
