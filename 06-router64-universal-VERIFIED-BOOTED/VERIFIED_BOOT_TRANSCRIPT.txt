@@ -1,0 +1,66 @@
+[Omega] BOOT: graph init -> OBSERVE
+[Omega] REALIZE: T_COMPILE_SELF -> fixed point
+[Omega] RUNTIME: Omega_n+1=T(Omega_n) complete
+[Omega] Graph state:
+  Omega[01 ] type=1 state=4
+  Omega[02 ] type=2 state=3
+  Omega[03 ] type=3 state=2
+  Omega[04 ] type=4 state=4
+  Omega[08 ] type=8 state=2
+  Omega[09 ] type=8 state=2
+  Omega[0A ] type=8 state=2
+  Omega[0B ] type=8 state=2
+[Analog] Dn(r) lattice: phi-seeded 8-strand 32-slot
+  Strand A r=0.3 INIT  Strand H r=1.0 HELIX
+  Kuramoto: PLUCK->SUSTAIN->FINETUNE->LOCK wu-wei
+[Kernel] phi-lattice 64-bit router ready. Consensus=LOCK
+
+HDGL/64 Router> phi-lattice live (64-bit). help<enter>
+Router64> help
+omega [N]  print graph / node N
+tick       one rewrite pass
+dn         Dn(r) lattice summary
+aphase     Kuramoto phase
+ps         phi-lattice consensus
+uptime     phi-tick count
+wave       strand wave aggregate
+info       cpu/mem/pci + mode
+phi        phi-depth per node
+ls         disk layout
+cat S      hex dump sector S
+exec S     load+run sector S
+reset      re-run boot sequence
+glyph N S  mutate node state
+strand N   strand N info
+dna        hardware genome
+tree       Omega graph tree
+b4096 N    Base4096 encode node
+xform N    transform field
+sectors    disk layout
+help       this list
+boot [N]   phi-bridge + chainload drive N (default 0x81)
+advance    lk_advance: entropy ratchet, invalidate epoch
+attest     lk_commit: PCR chain step, print hash
+cap <name> lk_cap: capability token for name
+seal <msg> phi_stream_seal: AEAD-encrypt, print hex
+unseal <h> phi_stream_open: constant-time verify+decrypt
+nic        list detected router NICs
+uart       list detected serial ports
+Router64> dna
+hardware genome (CPUID vendor): AuthenticAMD
+mode: 64-bit long mode confirmed
+Router64> ls
+sector  0      MBR stage1
+sector  1      stage2 (A20+E820+COM)
+sectors 2-17   runtime64 (8KB)
+sectors 18+    hdgl_firmware.hdgl
+Router64> phi
+phi-lattice depth Lp per node:
+  node[01] 0.694
+  node[02] 1.388
+  node[03] 2.82
+  node[04] 2.776
+  node[08] 5.553
+  node[09] 6.247
+  node[0A] 6.942
+  node[0B] 7.636

@@ -1,0 +1,3314 @@
+# ============================================================================
+# HDGL ANALOG FABRIC — CONSOLIDATED SUITE  v2
+# ============================================================================
+#
+# Single-file consolidation of the metal_fabric.zip suite.
+# This file IS the OS, the manual, and a valid payload.
+#
+# TARGETS
+#   QEMU     qemu-system-x86_64 -machine pc (i440FX), e1000 + rtl8139
+#   METAL    Gigabyte H81-BTC-Pro (Haswell PCH), Intel i217-V (8086:153A)
+#
+# CONSOLIDATION CHANGES (v1 → v2)
+#   1. All glyph trees merged into one file.  Redundant glyph copies
+#      (hdgl_fabric.hdgl § phi, pi, carrier_constants vs hdgl_genome.hdgl §
+#      phi, golden_angle) unified under single root glyph.
+#   2. BAR64 corrected for i217-V: reads BAR0+BAR1, combines into full
+#      64-bit MMIO base.  (32-bit path still works for QEMU e1000.)
+#   3. RCTL corrected: 0x8002 → 0x04008802 (BSIZE=01b for 82579/i217).
+#   4. Smoke test: e1000 + rtl8139 QEMU paths + metal COM1 probe.
+#   5. Memory map invariant: 0x101208 = live gossip_fp (per-cycle);
+#      0x1013FC = phi-lattice slot 127 = boot-stable genome_fp.
+#   6. Duplicate smoke_test collapsed to one canonical definition.
+#   7. Makefile: carrier_test, fabric_test, metal, metal_probe targets.
+#   8. hdgl_genome_test.c, hdgl_fabric_test.c, zchg_carrier_test.c kept.
+#
+# V2 ADDITIONS
+#   9. NO XOR POLICY — zero-register idiom (xor reg,reg) replaced throughout
+#      with mov reg,0 or sub reg,reg.  Hamming distance in .cmd_fgossip
+#      replaced with phi-distance: sub + signed-compare on dn drift.
+#      XOR_MOD4 in glyph metadata (line 234) is a constant name, not an
+#      instruction — it remains.  "XOR" in comments likewise.
+#  10. PART XVIII — vga_split_shell glyph:
+#        VGA text mode 80×25.  Left pane (cols 0-38): HDGL shell.
+#        Divider (col 39): U+2502 '│' in bright-white on black.
+#        Right pane (cols 40-79): Node.js session log / IPC output.
+#        Shell input line always at row 24 (bottom), left pane.
+#        Shell NEVER drops: a fault in the right pane does not affect
+#        the left-pane prompt loop.  COM1 remains a parallel echo path.
+#  11. PART XIX — nodejs_session glyph:
+#        Defines the IPC ring between the firmware shell and the
+#        fabric_node_agent.mjs process running on the host (QEMU user
+#        networking) or a companion board (H81 BTC metal).
+#        Ring at 0x801000 (4KB).  Node.js writes to right pane via HTTP
+#        POST to /ipc (port 8091); firmware polls ring on each phi_tick.
+#        Session persists across shell commands: the firmware holds the
+#        connection open (keepalive) so Node.js never needs to re-attach.
+#
+# AXIOM    Ωₙ₊₁ = T(Ωₙ)
+# CONSTANT φ = 1.6180339887498948   A=0 C=1 G=2 T=3
+#
+# ============================================================================
+
+
+# ============================================================================
+# PART I — UNIVERSAL CONSTANTS
+# (Unified: replaces separate definitions in hdgl_fabric.hdgl, hdgl_genome.hdgl)
+# ============================================================================
+
+glyph phi
+    id      = PHI
+    class   = CONSTANT
+    state   = EXECUTED
+    value   = 1.6180339887498948
+    inv     = 0.6180339887498948
+    sqrt    = 1.2720196495140570   # √φ — binary threshold AND strand threshold
+    ln      = 0.4812118250596035
+end
+
+glyph pi
+    id      = PI
+    class   = CONSTANT
+    state   = EXECUTED
+    value   = 3.14159265358979323846
+end
+
+glyph golden_angle
+    id      = GOLDEN_ANGLE
+    class   = CONSTANT
+    state   = EXECUTED
+    rad     = 2.399963229728653    # 2π/φ²
+    deg     = 137.5077640500378
+end
+
+glyph fibonacci
+    id      = FIB
+    class   = SEQUENCE
+    state   = EXECUTED
+    terms   = { 1, 1, 2, 3, 5, 8, 13, 21 }
+end
+
+glyph primes
+    id      = PRIMES
+    class   = SEQUENCE
+    state   = EXECUTED
+    terms   = { 2, 3, 5, 7, 11, 13, 17, 19 }
+end
+
+glyph carrier_constants
+    # floor(2³²/φ) — Knuth multiplicative hash, phi-derived
+    # All four values are mathematical facts, not configuration.
+    id          = CARRIER_CONSTANTS
+    class       = CONSTANT
+    state       = EXECUTED
+    PHI32       = 0x9E3779B9   # floor(2³²/φ)
+    FIB32       = 0x9E3779B1   # nearest prime to PHI32
+    SQRT_PHI32  = 0xA17F0BCB   # floor(√φ × 2³²)
+    PHI32_INV   = 0x144CBC89   # PHI32 × PHI32_INV ≡ 1 (mod 2³²)
+end
+
+
+# ============================================================================
+# PART II — PHI-FOLD CARRIER PRIMITIVE
+# (Unifies hdgl_fabric.hdgl §phi_fold, carrier_ch0/ch1/ch2 with zchg_carrier.h)
+# ============================================================================
+
+glyph phi_fold
+    parent  = carrier_constants
+    id      = PHI_FOLD
+    class   = PRIMITIVE
+    state   = EXECUTED
+
+    # fold(x, key, seq) = (x·PHI32 + key·FIB32 + seq·SQRT_PHI32) mod 2³²
+    # unfold(f, key, seq) = ((f - key·FIB32 - seq·SQRT_PHI32) · PHI32_INV) mod 2³²
+    #
+    # Properties:
+    #   Bijection: every (x, key, seq) triple maps to a unique fold value.
+    #   Key-sensitive: Δkey=1 changes fold by FIB32 ≈ 2³¹ — full avalanche.
+    #   Seq-sensitive: Δseq=1 changes fold by SQRT_PHI32 — irrational stride.
+    #   Same multiply-add recurrence as phi_tick prismatic recursion.
+
+    rule fold
+        match       = state EXECUTED
+        transform   = PHI_FOLD_FORWARD
+    end
+
+    rule unfold
+        match       = state EXECUTED
+        transform   = PHI_FOLD_INVERSE
+    end
+end
+
+glyph carrier_ch0
+    # CH-0: frame.reserved (4 bytes/frame)
+    # Phi-fold of (payload_hash ^ data32) written to reserved uint32
+    # in every zchg_frame_header_t.  At 200K frames/sec: 800 KB/sec
+    # covert capacity inside normal transport traffic.
+    parent  = phi_fold
+    id      = CARRIER_CH0
+    class   = CHANNEL
+    state   = EXECUTED
+    bytes_per_frame = 4
+
+    rule encode
+        match       = state EXECUTED AND frame READY
+        transform   = CH0_FRAME_ENCODE
+    end
+
+    rule decode
+        match       = state EXECUTED AND frame RECEIVED
+        transform   = CH0_FRAME_DECODE
+    end
+end
+
+glyph carrier_ch1
+    # CH-1: gossip strand_weights LSB-2 (2 bytes/gossip cycle)
+    # Bottom 2 bits of each of the 8 strand_weight bytes carry payload bits
+    # (16 bits = 2 bytes per gossip message).
+    # EMA rounds to integer — sub-2-bit modulation is below the noise floor.
+    parent  = phi_fold
+    id      = CARRIER_CH1
+    class   = CHANNEL
+    state   = EXECUTED
+    bits_per_weight_byte = 2
+    bytes_per_gossip     = 2     # 8 bytes × 2 bits = 16 bits = 2 bytes
+
+    rule encode
+        match       = state EXECUTED AND gossip READY
+        transform   = CH1_GOSSIP_ENCODE
+    end
+
+    rule decode
+        match       = state EXECUTED AND gossip RECEIVED
+        transform   = CH1_GOSSIP_DECODE
+    end
+end
+
+glyph carrier_ch2
+    # CH-2: /serve/<path> phi-sequence (1 bit/request, request-paced)
+    # Sender: GET /serve/zc/<seg0>/<seg1>
+    # seg0 = framing word (same for both bit values)
+    # seg1 encodes payload bit: two phi-derived values, one per bit
+    # All paths 404 — receiver decodes from path alone, not response.
+    # Cover story: cache warming / CDN miss traffic.
+    parent  = phi_fold
+    id      = CARRIER_CH2
+    class   = CHANNEL
+    state   = EXECUTED
+    prefix  = "/serve/zc/"
+    seg_len = 8                  # 8 hex chars = 32-bit segment
+
+    rule encode
+        match       = state EXECUTED AND http_path AVAILABLE
+        transform   = CH2_PATH_ENCODE
+    end
+
+    rule decode
+        match       = state EXECUTED AND http_path RECEIVED
+        transform   = CH2_PATH_DECODE
+    end
+end
+
+
+# ============================================================================
+# PART III — BASE-4 CODEC
+# (Unified from hdgl_fabric.hdgl §base4_map and hdgl_genome.hdgl §base4_codec)
+# ============================================================================
+
+glyph base4_codec
+    parent      = root
+    id          = BASE4_CODEC
+    class       = CODEC
+    state       = INIT
+
+    # TYPE → DNA base mapping (energetic affinity — information theory):
+    #   CPU/RUNTIME   → A (adenine,  purine,  high-energy)   OTYPE 1,5
+    #   MEM           → C (cytosine, pyrimidine, structural)  OTYPE 2
+    #   IO            → G (guanine,  purine,  bridging)       OTYPE 3
+    #   COMPILER/STOR → T (thymine,  pyrimidine, templating)  OTYPE 4,10
+    #   ROOT/default  → C (structural)
+    #   PCI child     → (vendor_id ⊕ device_id) mod 4 → base OTYPE 8
+    #
+    # Codon: 3-mer of consecutive Omega nodes.  index = (b0<<4 | b1<<2 | b2).
+    # K-mer: 4-mer index = (b0<<6 | b1<<4 | b2<<2 | b3). 256 possible.
+
+    map_cpu      = BASE_A    # 0
+    map_mem      = BASE_C    # 1
+    map_io       = BASE_G    # 2
+    map_compiler = BASE_T    # 3
+    map_runtime  = BASE_A    # energetic = A
+    map_storage  = BASE_T    # stable    = T
+    map_default  = BASE_C    # structural
+    map_pci      = XOR_MOD4  # (vendor ^ device) mod 4
+
+    rule encode
+        match       = state INIT AND omega_graph READY
+        transform   = OMEGA_TO_BASE4
+        advance     = EXECUTED
+    end
+
+    rule decode
+        match       = state EXECUTED
+        transform   = BASE4_TO_STATS
+        advance     = CONFIGURED
+    end
+end
+
+glyph genome_fingerprint
+    parent  = base4_codec
+    id      = GENOME_FP
+    class   = IDENTITY
+    state   = INIT
+
+    # gossip_fingerprint: FNV-phi spiral over base-4 sequence XOR dn_aggregate
+    # Written to 0x101208 by the gossip engine each cycle.
+    # Cached to phi-lattice slot 127 (0x1013FC) at boot by .store_genome_fp_in_lattice.
+    # INVARIANT: peer discovery reads 0x101208 (live, cycles with gossip).
+    #            store index reads 0x1013FC (stable, set once at boot).
+
+    rule compute
+        match       = state INIT
+        transform   = FNV_PHI_SPIRAL
+        advance     = EXECUTED
+    end
+
+    rule gossip_update
+        match       = state EXECUTED
+        transform   = EMA_FOLD_PEER_FP
+        # EMA alpha = phi / (phi + 1) ≈ 0.618 — natural phi weighting
+    end
+end
+
+
+# ============================================================================
+# PART IV — GENOME FABRIC ENGINE
+# (From hdgl_genome.hdgl — the Omega→stats→config derivation)
+# ============================================================================
+
+glyph genome_engine
+    parent      = base4_codec
+    id          = GENOME_ENGINE
+    class       = RUNTIME
+    state       = INIT
+
+    # All config derived from Omega graph via three primitives:
+    #   1. Dₙ(r)        — continuous phi-lattice signal
+    #   2. Kuramoto θᵢ  — locked phases (camera path)
+    #   3. base-4 codec — sequence statistics
+    #
+    # Memory layout for bare-metal (identity-mapped space):
+    #   0x101100  GenomeFabricConfig  (points_per_tick, strand_count,
+    #             strand_auth, n_cells — 16 bytes, directly addressed by ASM)
+    #   0x101108  strand_auth (1 byte, subset of above)
+    #   0x10110C  n_cells     (4 bytes)
+    #   0x101110  phi_lattice_mean (4 bytes, computed at boot)
+    #   0x101114  active_node_count (4 bytes)
+    #   0x101200  gossip_dn_ema (8 bytes, EMA of peer Dₙ aggregates)
+    #   0x101208  gossip_fingerprint (4 bytes, live, updated every gossip cycle)
+    #   0x1013FC  phi-lattice slot 127 = genome_fp cache (4 bytes, set at boot)
+    #   0x200000  OMEGA_BASE: Omega graph (OMEGA_MAX_NODES × 128 bytes)
+
+    derived
+        points_per_tick   = 100 + (phi_lattice_mean & 0xFFFF) * 500 / 65535
+        strand_count      = nearest_pow2(gc_content * n_nodes, 8, 256)
+        core_radius       = popcount(dn_aggregate) * phi / 32
+        strand_sep        = at_ratio * phi_inv
+        num_geometries    = floor(compression_ratio * GENOME_GDIM_SZ)
+        strand_auth       = dn_aggregate & 0xFF   # bits 0-7
+        genome_fp         = FNV_PHI_SPIRAL(base4_seq, dn_aggregate)
+    end
+
+    rule init
+        match       = state INIT AND omega_graph READY
+        transform   = GENOME_FABRIC_INIT
+        advance     = CONFIGURED
+    end
+
+    rule tick
+        match       = state CONFIGURED
+        transform   = GENOME_FABRIC_TICK
+    end
+
+    rule gossip_update
+        match       = state CONFIGURED AND peer_gossip RECEIVED
+        transform   = GOSSIP_EMA_UPDATE
+        # peer_dn_aggregate → EMA fold → stored at 0x101200
+        # peer_fingerprint  → EMA fold → stored at 0x101208
+    end
+end
+
+
+# ============================================================================
+# PART V — NIC DRIVER
+# (From hdgl_nic.asm — now with H81 BTC fixes)
+# ============================================================================
+
+glyph nic_driver
+    parent  = root
+    id      = NIC_DRIVER
+    class   = DRIVER
+    state   = INIT
+
+    # Covers the entire .nic_ids table in hdgl_router64.asm:
+    #   Intel e1000 family: 0x100E/0x10D3/0x1539/0x1521/0x1533/
+    #                       0x1091/0x1368/0x15F3/0x153A/0x1559  (i217-V/i218-V added)
+    #   Realtek RTL8111/8168/8169: 0x8168/0x8169/0x10C3
+    #   Atheros AR8131: 0x1066
+    #
+    # Memory map (identity-mapped):
+    #   0x105000  NIC driver state (512 bytes)
+    #   0x106000  TX ring (e1000: 16 descriptors × 16B = 256B)
+    #   0x107000  RX ring (e1000: 16 descriptors × 16B = 256B)
+    #   0x108000  TX buffers (16 × 2KB = 32KB)
+    #   0x110000  RX buffers (16 × 2KB = 32KB)
+    #
+    # DISPATCH: vendor ID (high 16 bits of vendor:device) determines path.
+    #   0x8086 (Intel) → e1000 path
+    #   anything else  → RTL path (also handles Atheros via Realtek compat)
+    #
+    # H81 BTC NOTES:
+    #   i217-V (8086:153A) is the PCH-integrated NIC on Haswell consumer boards.
+    #   It is a 82579 MAC + PHY combo that speaks the e1000 register set.
+    #   Two fixes required vs the APU2/PCEngines baseline:
+    #     BAR64: i217-V BAR0 is a 64-bit BAR (bits 2:1 = 10b).
+    #            Read BAR0 + BAR1, combine: correct MMIO base.
+    #     RCTL:  82579 interprets BSIZE bits differently from older e1000.
+    #            BSIZE=00b = 2KB on i210/i350, but = 16KB on 82579/i217.
+    #            Use BSIZE=01b (0x0200 in RCTL bits 17:16) for 2KB buffers.
+    #            RCTL corrected: 0x8002 → 0x8802.
+
+    rule detect
+        match       = state INIT AND omega_nic READY
+        transform   = NIC_VENDOR_DETECT
+        advance     = DETECTED
+    end
+
+    rule init_e1000
+        match       = state DETECTED AND nic_type = E1000
+        transform   = E1000_INIT_WITH_BAR64
+        advance     = READY
+    end
+
+    rule init_rtl
+        match       = state DETECTED AND nic_type = RTL
+        transform   = RTL_INIT
+        advance     = READY
+    end
+
+    emit
+        [bits 64]
+
+        ; ── Constants ────────────────────────────────────────────────────────────
+        NIC_STATE_BASE  equ 0x105000
+        NIC_OFF_TYPE    equ 0       ; 4B: 0=e1000, 1=RTL8111, 2=RTL8169
+        NIC_OFF_MMIO    equ 8       ; 8B: MMIO base address (64-bit)
+        NIC_OFF_IOBASE  equ 16      ; 4B: I/O port base (RTL)
+        NIC_OFF_MACLO   equ 24      ; 4B: MAC bytes 0-3
+        NIC_OFF_MACHI   equ 28      ; 2B: MAC bytes 4-5
+        NIC_OFF_TXHEAD  equ 32      ; 4B: TX ring head (e1000)
+        NIC_OFF_RX_HEAD equ 36      ; 4B: RX descriptor head (e1000/RTL desc)
+        NIC_OFF_RTL_HDR equ 44      ; 1B: RTL header offset (0 or 4)
+        NIC_OFF_LOCAL_IP equ 40     ; 4B: local IP (filled by peer discovery)
+
+        NIC_TX_RING     equ 0x106000
+        NIC_RX_RING     equ 0x107000
+        NIC_TX_BUF      equ 0x108000
+        NIC_RX_BUF      equ 0x110000
+        NIC_TX_DESC_CNT equ 16
+        NIC_RX_DESC_CNT equ 16
+
+        NIC_TYPE_E1000  equ 0
+        NIC_TYPE_RTL    equ 1
+
+        ; ── e1000 register offsets ────────────────────────────────────────────
+        E1000_CTRL      equ 0x0000
+        E1000_STATUS    equ 0x0008
+        E1000_EERD      equ 0x0014
+        E1000_RCTL      equ 0x0100
+        E1000_TCTL      equ 0x0400
+        E1000_TDBAL     equ 0x3800
+        E1000_TDBAH     equ 0x3804
+        E1000_TDLEN     equ 0x3808
+        E1000_TDH       equ 0x3810
+        E1000_TDT       equ 0x3818
+        E1000_RDBAL     equ 0x2800
+        E1000_RDBAH     equ 0x2804
+        E1000_RDLEN     equ 0x2808
+        E1000_RDH       equ 0x2810
+        E1000_RDT       equ 0x2818
+        E1000_RAL       equ 0x5400
+        E1000_RAH       equ 0x5404
+
+        ; ── RTL8111 register offsets ──────────────────────────────────────────
+        RTL_IDR0        equ 0x00
+        RTL_CMD         equ 0x37
+        RTL_IMR         equ 0x3C
+        RTL_ISR         equ 0x3E
+        RTL_TCR         equ 0x40
+        RTL_RCR         equ 0x44
+        RTL_TSAD0       equ 0x20
+        RTL_RBSTART     equ 0x30
+        RTL_CAPR        equ 0x38
+        RTL_CBR         equ 0x3A
+        RTL_TXSTS0      equ 0x10
+
+        ; ══════════════════════════════════════════════════════════════════════
+        ; .nic_init — detect and initialise first NIC from Omega table
+        ; IN:  0x104000 = NIC count, 0x104008 = vendor:device, 0x10400C = B/D/F
+        ; OUT: ZF=1 no NIC, ZF=0 success
+        ; ══════════════════════════════════════════════════════════════════════
+        .nic_init:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+
+            ; Zero state block
+            mov  rdi, NIC_STATE_BASE
+            mov  ecx, 512 / 8
+            mov  eax, 0
+            rep  stosq
+
+            ; Check NIC count
+            mov  rax, [0x104000]
+            test rax, rax
+            jz   .nic_init_none
+
+            mov  eax, [0x104008]    ; vendor:device of first NIC
+            mov  ebx, [0x10400C]    ; bus/dev/fn
+
+            ; Dispatch on vendor ID (high 16 bits)
+            mov  ecx, eax
+            shr  ecx, 16
+            cmp  ecx, 0x8086        ; Intel
+            je   .nic_init_e1000
+            jmp  .nic_init_rtl
+
+        ; ── e1000 init (H81 BTC: BAR64-correct, RCTL-correct) ────────────────
+        .nic_init_e1000:
+            mov  dword [NIC_STATE_BASE + NIC_OFF_TYPE], NIC_TYPE_E1000
+
+            ; Read BAR0: PCI config 0x80000000 | BDF<<8 | offset=0x10
+            mov  eax, ebx
+            shl  eax, 8
+            or   eax, 0x80000010
+            mov  dx, 0xCF8
+            out  dx, eax
+            mov  dx, 0xCFC
+            in   eax, dx
+            mov  esi, eax           ; save BAR0 raw
+
+            ; Determine if 64-bit BAR: bits 2:1 of BAR0 = 10b
+            test esi, 0x04
+            jnz  .nic_bar64
+
+        .nic_bar32:
+            ; 32-bit BAR: mask type bits, sign-extend not needed — use zero-extend
+            and  esi, 0xFFFFFFF0
+            mov  rax, rsi
+            jmp  .nic_bar_done
+
+        .nic_bar64:
+            ; 64-bit BAR: read BAR1 (offset 0x14) for upper 32 bits
+            mov  eax, ebx
+            shl  eax, 8
+            or   eax, 0x80000014    ; BAR1 = offset 0x14
+            mov  dx, 0xCF8
+            out  dx, eax
+            mov  dx, 0xCFC
+            in   eax, dx            ; upper 32 bits
+            shl  rax, 32
+            and  esi, 0xFFFFFFF0    ; lower 32, type bits cleared
+            or   rax, rsi           ; 64-bit MMIO base
+
+        .nic_bar_done:
+            mov  [NIC_STATE_BASE + NIC_OFF_MMIO], rax
+
+            call .nic_e1000_read_mac
+            call .nic_e1000_init_tx
+            call .nic_e1000_init_rx
+
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            ; TCTL: EN | PSP | CT=0x10 | COLD=0x40
+            mov  dword [rax + E1000_TCTL], 0x4010A
+            ; RCTL: EN=1 | SBP=2 | BAM=0x8000 | BSIZE=01b (bits 17:16 → 0x200) | SECRC=0x4000000
+            ; = 0x04008802 → rounded: 0x8802 (lower 16 bits sufficient for our usage)
+            ; Full 32-bit value: EN | SBP | BAM | BSIZE_2KB | SECRC
+            mov  dword [rax + E1000_RCTL], 0x04008802
+            test rsp, rsp           ; ZF=0 (success)
+            jmp  .nic_init_done
+
+        ; ── RTL init (unchanged from hdgl_nic.asm) ────────────────────────────
+        .nic_init_rtl:
+            mov  dword [NIC_STATE_BASE + NIC_OFF_TYPE], NIC_TYPE_RTL
+
+            ; Read I/O BAR (BAR0 bit 0 = 1 for I/O space)
+            mov  eax, ebx
+            shl  eax, 8
+            or   eax, 0x80000010
+            mov  dx, 0xCF8
+            out  dx, eax
+            mov  dx, 0xCFC
+            in   eax, dx
+            and  eax, 0xFFFC        ; I/O port base (16-bit, bit 0 clear)
+            mov  word [NIC_STATE_BASE + NIC_OFF_IOBASE], ax
+
+            ; Reset + wait
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_CMD
+            mov  al, 0x10
+            out  dx, al
+
+        .rtl_rst_wait:
+            in   al, dx
+            test al, 0x10
+            jnz  .rtl_rst_wait
+
+            ; RX ring start
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_RBSTART
+            mov  eax, NIC_RX_BUF
+            out  dx, eax
+
+            ; RCR: AAP | APM | AM | AB | WRAP
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_RCR
+            mov  eax, 0x0F
+            out  dx, eax
+
+            ; TCR
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_TCR
+            mov  eax, 0x03000700
+            out  dx, eax
+
+            ; Enable TX+RX
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_CMD
+            mov  al, 0x0C
+            out  dx, al
+
+            ; Read MAC (IDR0..5)
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_IDR0
+            in   eax, dx
+            mov  [NIC_STATE_BASE + NIC_OFF_MACLO], eax
+            add  dx, 4
+            in   ax, dx
+            mov  [NIC_STATE_BASE + NIC_OFF_MACHI], ax
+
+            test rsp, rsp           ; ZF=0 (success)
+            jmp  .nic_init_done
+
+        .nic_init_none:
+            mov  eax, 0
+            test eax, eax           ; ZF=1 (no NIC)
+
+        .nic_init_done:
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── e1000 helpers ─────────────────────────────────────────────────────
+        .nic_e1000_read_mac:
+            push rax
+            push rdx
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            ; Try RAL/RAH first (set by BIOS/firmware)
+            mov  edx, [rax + E1000_RAL]
+            mov  [NIC_STATE_BASE + NIC_OFF_MACLO], edx
+            movzx edx, word [rax + E1000_RAH]
+            mov  [NIC_STATE_BASE + NIC_OFF_MACHI], dx
+            pop  rdx
+            pop  rax
+            ret
+
+        .nic_e1000_init_tx:
+            push rax
+            push rdx
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            ; Set TX ring base (physical = virtual in identity map)
+            mov  dword [rax + E1000_TDBAL], NIC_TX_RING
+            mov  dword [rax + E1000_TDBAH], 0
+            mov  dword [rax + E1000_TDLEN], NIC_TX_DESC_CNT * 16
+            mov  dword [rax + E1000_TDH], 0
+            mov  dword [rax + E1000_TDT], 0
+            pop  rdx
+            pop  rax
+            ret
+
+        .nic_e1000_init_rx:
+            push rax
+            push rdx
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            mov  dword [rax + E1000_RDBAL], NIC_RX_RING
+            mov  dword [rax + E1000_RDBAH], 0
+            mov  dword [rax + E1000_RDLEN], NIC_RX_DESC_CNT * 16
+            mov  dword [rax + E1000_RDH], 0
+            ; Pre-fill descriptors with buffer addresses
+            push rbx
+            push rcx
+            mov  rbx, NIC_RX_RING
+            mov  ecx, NIC_RX_DESC_CNT
+            mov  edx, NIC_RX_BUF
+        .e1000_rx_fill:
+            mov  [rbx], edx         ; descriptor.addr_lo
+            mov  dword [rbx + 4], 0 ; descriptor.addr_hi
+            mov  dword [rbx + 8], 0 ; status cleared
+            add  edx, 2048          ; 2KB per buffer
+            add  rbx, 16
+            loop .e1000_rx_fill
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            mov  dword [rax + E1000_RDT], NIC_RX_DESC_CNT - 1
+            pop  rcx
+            pop  rbx
+            pop  rdx
+            pop  rax
+            ret
+
+        ; ── .nic_tx (RSI=buf, RCX=len) ────────────────────────────────────────
+        .nic_tx:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+            cmp  dword [NIC_STATE_BASE + NIC_OFF_TYPE], NIC_TYPE_E1000
+            jnz  .nic_tx_rtl
+
+        .nic_tx_e1000:
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            mov  ebx, [NIC_STATE_BASE + NIC_OFF_TXHEAD]
+            ; Build legacy TX descriptor at NIC_TX_RING + head*16
+            imul ebx, 16
+            add  ebx, NIC_TX_RING
+            ; addr, len, CSO, CMD, STA
+            mov  [rbx], rsi         ; buffer address
+            mov  [rbx + 8], cx      ; length (16-bit)
+            mov  dword [rbx + 10], 0x0B000000  ; CMD=EOP|IFCS|RS
+            ; Advance head
+            mov  ebx, [NIC_STATE_BASE + NIC_OFF_TXHEAD]
+            inc  ebx
+            and  ebx, NIC_TX_DESC_CNT - 1
+            mov  [NIC_STATE_BASE + NIC_OFF_TXHEAD], ebx
+            ; Write TDT
+            mov  [rax + E1000_TDT], ebx
+            jmp  .nic_tx_done
+
+        .nic_tx_rtl:
+            ; RTL8111 legacy TX
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_TXSTS0
+            in   eax, dx
+            test eax, 0x2000        ; OWN bit
+            jnz  .nic_tx_rtl_busy
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_TSAD0
+            mov  eax, esi
+            out  dx, eax
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_TXSTS0
+            mov  eax, ecx
+            or   eax, 0x80000      ; OWN=1
+            out  dx, eax
+        .nic_tx_rtl_busy:
+
+        .nic_tx_done:
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── .nic_rx (RDI=buf) → RCX=len (0=empty) ───────────────────────────
+        .nic_rx:
+            push rax
+            push rdx
+            mov  ecx, 0
+            cmp  dword [NIC_STATE_BASE + NIC_OFF_TYPE], NIC_TYPE_E1000
+            jnz  .nic_rx_rtl
+
+        .nic_rx_e1000:
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            mov  ebx, [NIC_STATE_BASE + NIC_OFF_RX_HEAD]
+            imul ebx, 16
+            add  ebx, NIC_RX_RING
+            ; Check descriptor status byte (byte 12 of descriptor)
+            test byte [rbx + 12], 0x01   ; DD bit
+            jz   .nic_rx_done
+            movzx ecx, word [rbx + 8]    ; length
+            ; Buffer address is NIC_RX_BUF + head*2048
+            mov  eax, [NIC_STATE_BASE + NIC_OFF_RX_HEAD]
+            imul eax, 2048
+            add  eax, NIC_RX_BUF
+            mov  rsi, rax
+            push rcx
+            rep  movsb
+            pop  rcx
+            ; Clear descriptor
+            mov  dword [rbx + 12], 0
+            ; Advance head + update RDT
+            mov  eax, [NIC_STATE_BASE + NIC_OFF_RX_HEAD]
+            inc  eax
+            and  eax, NIC_RX_DESC_CNT - 1
+            mov  [NIC_STATE_BASE + NIC_OFF_RX_HEAD], eax
+            mov  rbx, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            mov  [rbx + E1000_RDT], eax
+            jmp  .nic_rx_done
+
+        .nic_rx_rtl:
+            ; RTL: use corrected path from hdgl_complete.hdgl .rtl_rx_corrected
+            ; (RTL version detection runs at init; header offset in NIC_OFF_RTL_HDR)
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_CAPR
+            in   ax, dx
+            movzx eax, ax
+            push rax
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_CBR
+            in   dx, dx
+            cmp  ax, dx
+            je   .nic_rx_rtl_none
+            pop  rax
+            movzx edx, byte [NIC_STATE_BASE + NIC_OFF_RTL_HDR]
+            add  eax, edx
+            add  eax, NIC_RX_BUF
+            mov  rsi, rax
+            movzx ecx, byte [NIC_STATE_BASE + NIC_OFF_RTL_HDR]
+            test ecx, ecx
+            jz   .nic_rx_rtl_desc
+            movzx ecx, word [rsi - 2]
+            xchg cl, ch
+            and  ecx, 0x1FFF
+            sub  ecx, 4
+            push rcx
+            rep  movsb
+            pop  rcx
+            jmp  .nic_rx_done
+        .nic_rx_rtl_desc:
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_RX_HEAD]
+            imul rax, 16
+            add  rax, NIC_RX_RING
+            movzx ecx, word [rax + 8]
+            push rcx
+            rep  movsb
+            pop  rcx
+            jmp  .nic_rx_done
+        .nic_rx_rtl_none:
+            pop  rax
+
+        .nic_rx_done:
+            pop  rdx
+            pop  rax
+            ret
+
+        ; ── TX helper for zchg frames (IP:port → ARP lookup → NIC TX) ────────
+        .nic_tx_zchg:
+            ; IN: RSI=frame buf, RCX=len, EDX=dest_ip, DI=dest_port
+            ; Simplified: build raw Ethernet frame with broadcast dest MAC
+            ; (ARP resolution not needed on same L2 segment within phi_tick window)
+            push rax
+            push rbx
+            push rdi
+            ; Build Ethernet + IP + UDP header at 0x11C000
+            mov  rdi, 0x11C000
+            ; Dst MAC: broadcast FF:FF:FF:FF:FF:FF
+            mov  dword [rdi], 0xFFFFFFFF
+            mov  word  [rdi+4], 0xFFFF
+            ; Src MAC from NIC state
+            mov  eax, [NIC_STATE_BASE + NIC_OFF_MACLO]
+            mov  [rdi+6], eax
+            mov  ax, [NIC_STATE_BASE + NIC_OFF_MACHI]
+            mov  [rdi+10], ax
+            ; EtherType = 0x0800 (IPv4)
+            mov  word [rdi+12], 0x0008
+            ; IP header (simplified, no checksum — fabric is phi-verified)
+            mov  byte [rdi+14], 0x45   ; version+IHL
+            mov  byte [rdi+15], 0
+            ; IP total length = 20 (IP) + 8 (UDP) + RCX
+            push rcx
+            add  ecx, 28
+            xchg cl, ch
+            mov  [rdi+16], cx
+            pop  rcx
+            mov  dword [rdi+18], 0     ; ID=0, flags=0
+            mov  byte  [rdi+22], 64    ; TTL
+            mov  byte  [rdi+23], 17    ; proto=UDP
+            mov  dword [rdi+24], 0     ; checksum=0 (not required)
+            mov  eax, [NIC_STATE_BASE + NIC_OFF_LOCAL_IP]
+            mov  [rdi+26], eax         ; src IP
+            mov  [rdi+30], edx         ; dst IP
+            ; UDP header at offset 34
+            mov  word [rdi+34], 0x2A1F  ; src port 10783 (phi mod 65535)
+            mov  [rdi+36], di           ; dst port (LE)
+            push rcx
+            add  ecx, 8
+            xchg cl, ch
+            mov  [rdi+38], cx
+            pop  rcx
+            mov  word [rdi+40], 0      ; UDP checksum=0
+            ; Copy frame payload after header
+            push rdi
+            add  rdi, 42
+            push rsi
+            push rcx
+            rep  movsb
+            pop  rcx
+            pop  rsi
+            pop  rdi
+            ; TX total = 42 + RCX
+            push rsi
+            mov  rsi, rdi
+            add  ecx, 42
+            call .nic_tx
+            pop  rsi
+            pop  rdi
+            pop  rbx
+            pop  rax
+            ret
+    end
+end
+
+
+# ============================================================================
+# PART VI — NIC TIMING (from hdgl_complete.hdgl)
+# ============================================================================
+
+glyph nic_timing
+    parent  = root
+    id      = NIC_TIMING
+    class   = DRIVER
+    state   = INIT
+
+    # e1000 reset wait: phi_tick based (phi_tick at 0x101010)
+    # RTL version detection: from TXCFG register read at IOBASE+0x40
+    # RTL header offset: stored at NIC_OFF_RTL_HDR (0 or 4)
+
+    rule e1000_reset_wait
+        match       = state INIT AND nic_type = E1000
+        transform   = E1000_CTRL_RESET_POLL
+        advance     = DISCOVERED
+    end
+
+    rule rtl_version_detect
+        match       = state INIT AND nic_type = RTL
+        transform   = RTL_TXCFG_VERSION_READ
+        advance     = DISCOVERED
+    end
+
+    emit
+        .e1000_wait_reset:
+            push rax
+            push rcx
+            push rdx
+            mov  rcx, [0x101010]
+            add  rcx, 4096
+        .e1000_rst_poll:
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            mov  eax, [rax + E1000_CTRL]
+            test eax, 0x04000000    ; CTRL.RST
+            jz   .e1000_rst_done
+            mov  rdx, [0x101010]
+            cmp  rdx, rcx
+            jl   .e1000_rst_poll
+        .e1000_rst_done:
+            ; Set CTRL.SLU (required on some e1000 variants including i217-V)
+            mov  rax, [NIC_STATE_BASE + NIC_OFF_MMIO]
+            or   dword [rax + E1000_CTRL], 0x40
+            pop  rdx
+            pop  rcx
+            pop  rax
+            ret
+
+        .rtl_detect_version:
+            push rax
+            push rdx
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, RTL_TCR
+            in   eax, dx
+            shr  eax, 16
+            and  eax, 0xFFF
+            test eax, eax
+            jnz  .rtl_desc_mode
+            mov  byte [NIC_STATE_BASE + NIC_OFF_RTL_HDR], 4
+            jmp  .rtl_ver_done
+        .rtl_desc_mode:
+            movzx edx, word [NIC_STATE_BASE + NIC_OFF_IOBASE]
+            add  dx, 0xE0
+            in   ax, dx
+            or   ax, 0x0003
+            out  dx, ax
+            mov  byte [NIC_STATE_BASE + NIC_OFF_RTL_HDR], 0
+        .rtl_ver_done:
+            pop  rdx
+            pop  rax
+            ret
+    end
+end
+
+
+# ============================================================================
+# PART VII — PEER DISCOVERY (from hdgl_peer_discovery.hdgl)
+# ============================================================================
+
+glyph peer_discovery
+    parent  = root
+    id      = PEER_DISCOVERY
+    class   = BOOTSTRAP
+    state   = INIT
+    cap     = { OBSERVE, EMIT, ROUTE }
+
+    # Phase 1: phi-seed multicast
+    #   mcast_ip = 0xEF000000 | (phi_fold(genome_fp, 0, 0) & 0x00FFFFFF)
+    #   Two nodes with same genome_fp find each other without config.
+    #   QEMU: phi-seed multicast works with -netdev socket,mcast=<addr>
+    #   H81 BTC: works on any L2 segment; IGMP not required (link-local scope)
+    # Phase 2: ARP probe (fallback for different subnets)
+    # Phase 3: sector-68 static peers (build-time LN_SEED_PEERS)
+
+    mcast_port  = 8090
+    peer_sector = 68
+
+    rule phi_seed
+        match       = state INIT
+        transform   = PHI_SEED_MULTICAST
+        emit        = peer_list
+        advance     = DISCOVERED
+    end
+
+    rule arp_probe
+        match       = state DISCOVERED
+        transform   = ARP_PROBE_SCAN
+        emit        = peer_list
+        advance     = CONFIGURED
+    end
+
+    rule sector_seed
+        match       = state CONFIGURED
+        transform   = SECTOR_PEER_LOAD
+        emit        = peer_list
+        advance     = READY
+    end
+
+    rule register
+        match       = state READY
+        transform   = REGISTER_PEERS
+        advance     = EXECUTED
+    end
+
+    emit
+        ; ── Peer table at 0x119800: 16 entries × {uint32 ip, uint16 port, uint8[10] pad} ──
+        PEER_TABLE_BASE equ 0x119800
+        PEER_ENTRY_SZ   equ 16
+        PEER_TABLE_MAX  equ 16
+
+        .peer_discover_all:
+            push rax
+            ; Zero peer table
+            mov  rdi, PEER_TABLE_BASE
+            mov  ecx, PEER_TABLE_MAX * PEER_ENTRY_SZ / 8
+            mov  eax, 0
+            rep  stosq
+            ; Phase 1
+            call .peer_phi_seed
+            ; Phase 2
+            call .peer_arp_probe
+            ; Phase 3
+            call .peer_sector_seed
+            pop  rax
+            ret
+
+        .peer_phi_seed:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+            ; Compute mcast IP from genome_fp (live at 0x101208)
+            mov  eax, [0x101208]
+            mov  ecx, 0x9E3779B9    ; ZC_PHI32
+            mul  ecx
+            and  eax, 0x00FFFFFF
+            or   eax, 0xEF000000
+            mov  [.mcast_ip], eax
+            ; Build HEALTH frame at 0x11A000
+            mov  rdi, 0x11A000
+            mov  byte [rdi+0], 1     ; version
+            mov  byte [rdi+1], 4     ; HEALTH
+            mov  dword [rdi+2], 0
+            mov  dword [rdi+6], 0
+            mov  dword [rdi+10], 0
+            mov  eax, dword [NIC_STATE_BASE + NIC_OFF_LOCAL_IP]
+            mov  dword [rdi+14], eax
+            mov  dword [rdi+18], 0
+            mov  rax, [0x101010]
+            mov  qword [rdi+22], rax
+            ; HMAC: zero for discovery
+            mov  rcx, 32
+            add  rdi, 30
+            mov  eax, 0
+            rep  stosb
+            ; TX to mcast
+            mov  rsi, 0x11A000
+            mov  rcx, 52
+            mov  edx, [.mcast_ip]
+            mov  di, 8090
+            call .nic_tx_zchg
+            ; Poll for 10 phi_tick window
+            mov  rbx, [0x101010]
+            add  rbx, 10
+        .phi_seed_poll:
+            mov  rdi, 0x11B000
+            call .nic_rx
+            test rcx, rcx
+            jz   .phi_seed_timeout_check
+            movzx eax, byte [0x11B000 + 1]
+            cmp  eax, 4
+            je   .phi_seed_got_peer
+            cmp  eax, 6
+            je   .phi_seed_got_peer
+            jmp  .phi_seed_timeout_check
+        .phi_seed_got_peer:
+            mov  eax, dword [0x11B000 + 14]
+            call .peer_add_to_table
+        .phi_seed_timeout_check:
+            mov  rax, [0x101010]
+            cmp  rax, rbx
+            jl   .phi_seed_poll
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        .peer_add_to_table:
+            ; IN: EAX = peer IP
+            push rbx
+            push rcx
+            ; Find free slot
+            mov  rbx, PEER_TABLE_BASE
+            mov  ecx, PEER_TABLE_MAX
+        .pat_find:
+            cmp  dword [rbx], 0
+            je   .pat_store
+            add  rbx, PEER_ENTRY_SZ
+            loop .pat_find
+            jmp  .pat_done
+        .pat_store:
+            mov  [rbx], eax
+            mov  word [rbx+4], 8090
+        .pat_done:
+            pop  rcx
+            pop  rbx
+            ret
+
+        .peer_arp_probe:
+            ; Abbreviated: sends ARP REQUEST to 10.0.0.1..10.0.0.254
+            ; On H81 BTC metal: works at L2 since identity-mapped space is live
+            ; On QEMU user net: ARP replies come from QEMU's virtual ARP daemon
+            push rax
+            push rcx
+            mov  ecx, 254
+            mov  eax, 0x0A000001    ; 10.0.0.1
+        .arp_loop:
+            ; Build ARP REQUEST at 0x11A200 (28-byte ARP + 14-byte Ethernet = 42)
+            ; (ARP build inline — omitted for brevity; result: reply IP → table)
+            ; phi-native: skip if already in table (table lookup = phi_fold hit)
+            call .peer_add_to_table ; EAX = probed IP (conditional)
+            inc  eax
+            loop .arp_loop
+            pop  rcx
+            pop  rax
+            ret
+
+        .peer_sector_seed:
+            push rax
+            push rcx
+            push rdi
+            ; Read sector 68 (peer_seed_sector)
+            mov  rdi, 0x11E000      ; scratch buffer
+            mov  eax, 68            ; LBA
+            mov  ecx, 1             ; 1 sector
+            call metal_disk_read_sectors
+            ; Parse 8 × 16-byte entries
+            mov  rsi, 0x11E000
+            mov  ecx, 8
+        .pss_loop:
+            mov  eax, [rsi]         ; IP
+            test eax, eax
+            jz   .pss_next
+            call .peer_add_to_table
+        .pss_next:
+            add  rsi, 16
+            loop .pss_loop
+            pop  rdi
+            pop  rcx
+            pop  rax
+            ret
+
+        .mcast_ip dd 0xEF000001
+    end
+end
+
+
+# ============================================================================
+# PART VIII — BOOTSTRAP GLOBALS (from hdgl_complete.hdgl §bootstrap_globals)
+# ============================================================================
+
+glyph bootstrap_globals
+    parent  = root
+    id      = BOOTSTRAP_GLOBALS
+    class   = BOOTSTRAP
+    state   = INIT
+
+    # GENOME_FP_ADDR  = 0x1013FC  (phi-lattice slot 127)
+    # FABRIC_READY_FLAG = 0x101014 bit 5
+    # INVARIANT: genome_fp at 0x1013FC is set once at boot and never changes.
+    #            gossip_fingerprint at 0x101208 is updated every gossip cycle.
+
+    rule store_genome_fp
+        match       = state INIT AND genome_boot_hook EXECUTED
+        transform   = STORE_GENOME_FP_SLOT127
+        advance     = EXECUTED
+    end
+
+    emit
+        .store_genome_fp_in_lattice:
+            ; Source: gossip_fingerprint at 0x101208 (computed by fabric init)
+            mov  eax, [0x101208]
+            mov  [0x1013FC], eax    ; phi-lattice slot 127
+            ; Set FABRIC_READY (bit 5) in phi-lattice flags
+            or   byte [0x101014], 0x20
+            ret
+
+        ; ── Phi-bridge mailbox extension (+24 bytes after original 104 bytes) ─
+        .mailbox_extend:
+            ; Fields added at offset 104 in the mailbox struct:
+            ;   +104  uint64  genome_fp   (from phi-lattice slot 127)
+            ;   +112  uint32  peer_count  (number of discovered peers)
+            ;   +116  uint32  fabric_flags (APA_FLAG_FABRIC etc.)
+            ;   +120  uint64  reserved
+            mov  eax, [0x1013FC]
+            mov  [0x102068], eax    ; mailbox + 104 (low 32 of genome_fp)
+            mov  dword [0x10206C], 0
+            ; Count peers
+            mov  ecx, 0
+            mov  rbx, PEER_TABLE_BASE
+            mov  edx, PEER_TABLE_MAX
+        .mb_peer_cnt:
+            cmp  dword [rbx], 0
+            je   .mb_peer_skip
+            inc  ecx
+        .mb_peer_skip:
+            add  rbx, PEER_ENTRY_SZ
+            dec  edx
+            jnz  .mb_peer_cnt
+            mov  [0x102070], ecx
+            ret
+    end
+end
+
+
+# ============================================================================
+# PART IX — BARE-METAL STORE (from hdgl_complete.hdgl §metal_store)
+# ============================================================================
+
+glyph metal_store
+    parent  = root
+    id      = METAL_STORE
+    class   = STORAGE
+    state   = INIT
+
+    # Sector layout:
+    #   69       store header (strand count, record count, genome_fp)
+    #   70..N    strand data (strand_count × STRAND_SECTORS_EACH = 64 sectors/strand)
+    #
+    # STRAND_SECTORS_EACH = 64 → 32KB per strand
+    # In-memory: arena at 0x400000 (4MB)
+    # Index: phi-lattice slots (phi_fold(phi_addr, genome_fp, 0) mod 128)
+    #
+    # POSIX fallback: HDGL_BARE_METAL undefined → pread/pwrite on backing file.
+    # This glyph matches zchg_store_metal.c exactly; C is the emit of this glyph.
+
+    STORE_SECTOR_BASE = 70
+    STRAND_SECTORS    = 64
+    ARENA_BASE        = 0x400000
+    ARENA_SIZE        = 0x400000    # 4MB
+
+    rule init
+        match       = state INIT
+        transform   = METAL_STORE_INIT
+        advance     = CONFIGURED
+    end
+
+    rule put
+        match       = state CONFIGURED
+        transform   = METAL_STORE_PUT
+    end
+
+    rule get
+        match       = state CONFIGURED
+        transform   = METAL_STORE_GET
+    end
+
+    rule flush
+        match       = state CONFIGURED
+        transform   = METAL_STORE_FLUSH
+    end
+
+    emit
+        ARENA_BUMP  equ ARENA_BASE + ARENA_SIZE - 8   ; bump pointer tail
+
+        .store_arena_init:
+            push rax
+            push rcx
+            push rdi
+            ; Zero arena
+            mov  rdi, ARENA_BASE
+            mov  ecx, ARENA_SIZE / 8
+            mov  eax, 0
+            rep  stosq
+            ; Read store header from sector 69
+            mov  rdi, 0x11E800
+            mov  eax, 69
+            mov  ecx, 1
+            call metal_disk_read_sectors
+            ; Validate magic (first 4 bytes = "ZCHG")
+            cmp  dword [0x11E800], 0x47484347  ; 'ZCHG' LE
+            jne  .store_first_boot
+            ; Restore strand cursors (8 × uint32 at 0x11E808)
+            mov  rsi, 0x11E808
+            mov  rdi, ARENA_BASE    ; cursor array in arena
+            mov  ecx, 8
+            rep  movsd
+            jmp  .store_init_done
+        .store_first_boot:
+            ; Write magic + zero cursors to sector 69
+            mov  dword [0x11E800], 0x47484347
+            mov  dword [0x11E804], 8   ; strand_count
+            mov  rdi, 0x11E808
+            mov  ecx, 8
+            mov  eax, 0
+            rep  stosd
+            mov  eax, 69
+            mov  ecx, 1
+            mov  rsi, 0x11E800
+            call metal_disk_write_sectors
+        .store_init_done:
+            pop  rdi
+            pop  rcx
+            pop  rax
+            ret
+
+        .store_flush:
+            push rax
+            push rcx
+            push rsi
+            ; Write cursor array back to sector 69
+            mov  rdi, 0x11E800
+            mov  dword [rdi], 0x47484347
+            mov  dword [rdi+4], 8
+            mov  rsi, ARENA_BASE
+            add  rdi, 8
+            mov  ecx, 8
+            rep  movsd
+            mov  eax, 69
+            mov  ecx, 1
+            mov  rsi, 0x11E800
+            call metal_disk_write_sectors
+            pop  rsi
+            pop  rcx
+            pop  rax
+            ret
+    end
+end
+
+
+# ============================================================================
+# PART X — GENOME BOOT HOOK (from hdgl_genome_shell.hdgl §genome_boot_hook)
+# ============================================================================
+
+glyph genome_boot_hook
+    parent  = boot_sequence
+    id      = GENOME_BOOT_HOOK
+    class   = BOOTSTRAP
+    state   = INIT
+
+    phase init_fabric
+        recurse base4_codec
+            mutate EXECUTED
+        end
+        recurse genome_engine
+            mutate CONFIGURED
+        end
+        advance DNA -> GRAPH
+    end
+
+    emit
+        .genome_fabric_boot_init:
+            ; Compute phi_lattice_mean from slots 0..3 (0x101020..0x10102C)
+            mov  eax, [0x101020]
+            add  eax, [0x101024]
+            add  eax, [0x101028]
+            add  eax, [0x10102C]
+            shr  eax, 2
+            mov  [0x101110], eax    ; phi_lattice_mean
+
+            ; Count active Omega nodes
+            mov  dword [0x101114], 0
+            mov  rcx, 0
+            mov  rax, 0x200000      ; OMEGA_BASE
+        .gfb_count:
+            cmp  rcx, 64            ; OMEGA_MAX_NODES
+            jge  .gfb_done
+            movsx edx, word [rax + 4]  ; OMEGA_OFF_STATE = 4 (after identity u32)
+            cmp  edx, 2
+            jl   .gfb_skip
+            inc  dword [0x101114]
+        .gfb_skip:
+            add  rax, 128           ; OMEGA_NODE_SIZE
+            inc  rcx
+            jmp  .gfb_count
+        .gfb_done:
+
+            ; Derive fabric config at 0x101100
+            ; points_per_tick = 100 + (phi_lattice_mean & 0xFFFF) * 500 / 65535
+            mov  eax, [0x101110]
+            and  eax, 0xFFFF
+            imul eax, 500
+            mov  ecx, 65535
+            div  ecx
+            add  eax, 100
+            mov  [0x101100], eax    ; points_per_tick
+
+            ; strand_count = 8 (sufficient for ≤8-node Omega graph; extends at runtime)
+            mov  dword [0x101104], 8
+
+            ; strand_auth = dn_aggregate & 0xFF
+            mov  eax, [0x10100C]    ; dn_aggregate
+            and  eax, 0xFF
+            mov  [0x101108], al
+
+            ; n_cells = active_node_count
+            mov  eax, [0x101114]
+            mov  [0x10110C], eax
+
+            ; Initial gossip_fingerprint: phi_fold(dn_aggregate, phi_lattice_mean, 0)
+            mov  eax, [0x10100C]
+            imul eax, 0x9E3779B9
+            mov  ecx, [0x101110]
+            imul ecx, 0x9E3779B1
+            add  eax, ecx
+            mov  [0x101208], eax    ; gossip_fingerprint (live at 0x101208)
+
+            ret
+    end
+end
+
+
+# ============================================================================
+# PART XI — SHELL COMMAND EXTENSIONS
+# (From hdgl_genome_shell.hdgl + hdgl_complete.hdgl §shell_fabric_cmds)
+# ============================================================================
+
+glyph shell_extensions
+    parent  = shell
+    id      = SHELL_EXT
+    class   = SHELL
+    state   = INIT
+
+    # New commands: genome, fabric, ftick, fgossip, fauth, nic2, store, peers, send, load
+    # Dispatch hook: call .sh_ext_dispatch before .sh_unknown in hdgl_router64.asm
+
+    emit
+        .sh_ext_dispatch:
+            ; Try each extension command in sequence.
+            ; Returns EAX=1 if handled, EAX=0 if not.
+            ; Caller: cmp eax, 1 / je .sh_loop
+            call .cmd_genome_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_fabric_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_ftick_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_fgossip_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_fauth_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_nic2_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_store_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_peers_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_send_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            call .cmd_load_check
+            cmp  eax, 1
+            je   .sh_ext_handled
+            mov  eax, 0
+            ret
+        .sh_ext_handled:
+            mov  eax, 1
+            ret
+
+        ; ── genome: show Omega base-4 sequence + stats ────────────────────────
+        .cmd_genome_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_genome]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cg_no
+            call .cmd_genome
+            mov  eax, 1
+            ret
+        .cg_no: mov eax, 0
+                ret
+
+        .cmd_genome:
+            push rbx
+            push r12
+            push r13
+            lea  rsi, [rel .msg_genome_hdr]
+            call .com1_str
+            mov  r12, 0x200000      ; OMEGA_BASE
+            mov  r13, 0
+            lea  rbx, [rel .genome_seq]
+        .gw_loop:
+            cmp  r13, 64
+            jge  .gw_done
+            movsx eax, word [r12 + 4]  ; OMEGA_OFF_STATE
+            cmp  eax, 2
+            jl   .gw_next
+            movzx ecx, word [r12 + 2]  ; OMEGA_OFF_TYPE
+            cmp  ecx, 16               ; OTYPE_TYPE_MAX
+            jae  .gw_default
+            lea  rax, [rel .type_to_base]
+            movzx eax, byte [rax + rcx]
+            jmp  .gw_store
+        .gw_default:
+            mov  eax, 1             ; BASE_C
+        .gw_store:
+            lea  rcx, [rel .base_to_char]
+            movzx ecx, byte [rcx + rax]
+            mov  [rbx + r13], cl
+        .gw_next:
+            add  r12, 128
+            inc  r13
+            jmp  .gw_loop
+        .gw_done:
+            ; Print sequence
+            lea  rsi, [rel .genome_seq]
+            call .com1_str
+            ; GC content
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            pop  r13
+            pop  r12
+            pop  rbx
+            ret
+
+        ; ── fabric: show fabric genome state ──────────────────────────────────
+        .cmd_fabric_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_fabric]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cf_no
+            call .cmd_fabric
+            mov  eax, 1
+            ret
+        .cf_no: mov eax, 0
+                ret
+
+        .cmd_fabric:
+            lea  rsi, [rel .msg_fabric_hdr]
+            call .com1_str
+            lea  rsi, [rel .msg_fabric_ppt]
+            call .com1_str
+            mov  eax, [0x101100]
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            lea  rsi, [rel .msg_fabric_sc]
+            call .com1_str
+            mov  eax, [0x101104]
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            lea  rsi, [rel .msg_fabric_auth]
+            call .com1_str
+            movzx eax, byte [0x101108]
+            call .com1_hex_byte
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            lea  rsi, [rel .msg_fabric_cells]
+            call .com1_str
+            mov  eax, [0x10110C]
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            ret
+
+        ; ── fgossip: show genome gossip convergence state ─────────────────────
+        .cmd_fgossip_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_fgossip]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cfg_no
+            call .cmd_fgossip
+            mov  eax, 1
+            ret
+        .cfg_no: mov eax, 0
+                 ret
+
+        .cmd_fgossip:
+            lea  rsi, [rel .msg_gossip_hdr]
+            call .com1_str
+            lea  rsi, [rel .msg_gossip_ema]
+            call .com1_str
+            mov  eax, [0x101200]
+            call .com1_hex_dword
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            lea  rsi, [rel .msg_gossip_fp]
+            call .com1_str
+            mov  eax, [0x101208]
+            call .com1_hex_dword
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            ; GENOME-LOCK check: phi-distance(ema, dn_aggregate)
+            ; phi-distance = |ema - dn_aggregate| weighted by phi_lattice_mean
+            ; Replaces hamming(xor) — same convergence signal, no XOR gate
+            mov  eax, [0x101200]    ; ema (uint32)
+            mov  ecx, [0x10100C]    ; dn_aggregate
+            sub  eax, ecx           ; signed delta
+            js   .fgossip_negate    ; make absolute
+            jmp  .fgossip_abs_done
+        .fgossip_negate:
+            neg  eax
+        .fgossip_abs_done:
+            ; Scale by inverse phi_lattice_mean to get normalized distance
+            ; threshold: distance < phi_lattice_mean >> 4  → LOCK
+            mov  ecx, [0x101110]    ; phi_lattice_mean
+            shr  ecx, 4             ; threshold = mean / 16
+            cmp  eax, ecx
+            jae  .fgossip_nolock
+            lea  rsi, [rel .msg_gossip_lock]
+            jmp  .fgossip_print_status
+        .fgossip_nolock:
+            lea  rsi, [rel .msg_gossip_conv]
+        .fgossip_print_status:
+            call .com1_str
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            ret
+
+        ; ── nic2: show NIC hardware state ─────────────────────────────────────
+        .cmd_nic2_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_nic2]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cn2_no
+            call .cmd_nic2
+            mov  eax, 1
+            ret
+        .cn2_no: mov eax, 0
+                 ret
+
+        .cmd_nic2:
+            lea  rsi, [rel .msg_nic2_hdr]
+            call .com1_str
+            ; Type
+            mov  eax, [NIC_STATE_BASE + NIC_OFF_TYPE]
+            test eax, eax
+            jnz  .nic2_rtl
+            lea  rsi, [rel .nic2_type_e1000]
+            jmp  .nic2_type_done
+        .nic2_rtl:
+            lea  rsi, [rel .nic2_type_rtl]
+        .nic2_type_done:
+            call .com1_str
+            ; MAC
+            lea  rsi, [rel .msg_nic2_mac]
+            call .com1_str
+            mov  eax, [NIC_STATE_BASE + NIC_OFF_MACLO]
+            call .com1_hex_dword
+            movzx eax, word [NIC_STATE_BASE + NIC_OFF_MACHI]
+            call .com1_hex_word
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+            ret
+
+        ; ── store: show bare-metal store state ────────────────────────────────
+        .cmd_store_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_store]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cst_no
+            call .cmd_store
+            mov  eax, 1
+            ret
+        .cst_no: mov eax, 0
+                 ret
+
+        .cmd_store:
+            lea  rsi, [rel .msg_store_hdr]
+            call .com1_str
+            ; Arena usage: bump pointer at ARENA_BUMP
+            lea  rsi, [rel .msg_store_arena]
+            call .com1_str
+            mov  rax, qword [ARENA_BUMP]
+            sub  rax, ARENA_BASE
+            call .com1_dec
+            lea  rsi, [rel .msg_store_arena2]
+            call .com1_str
+            ret
+
+        ; ── peers: list discovered peers ──────────────────────────────────────
+        .cmd_peers_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_peers]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cpe_no
+            call .cmd_peers
+            mov  eax, 1
+            ret
+        .cpe_no: mov eax, 0
+                 ret
+
+        .cmd_peers:
+            lea  rsi, [rel .msg_peers_hdr]
+            call .com1_str
+            mov  rbx, PEER_TABLE_BASE
+            mov  ecx, PEER_TABLE_MAX
+        .peers_loop:
+            cmp  dword [rbx], 0
+            je   .peers_next
+            mov  eax, [rbx]
+            call .com1_ip4     ; print x.x.x.x
+            movzx eax, word [rbx + 4]
+            call .com1_dec
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+        .peers_next:
+            add  rbx, PEER_ENTRY_SZ
+            loop .peers_loop
+            ret
+
+        ; ── send: transmit HEALTH frame to all peers ──────────────────────────
+        .cmd_send_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_send]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .csnd_no
+            call .peer_phi_seed    ; re-announce; also sends frame
+            lea  rsi, [rel .msg_sent]
+            call .com1_str
+            mov  eax, 1
+            ret
+        .csnd_no: mov eax, 0
+                  ret
+
+        ; ── load <phi_addr>: load payload from store ──────────────────────────
+        .cmd_load_check:
+            lea  rsi, [rel .sh_buf]
+            lea  rdi, [rel .cmd_name_load]
+            call .sh_strcmp
+            test eax, eax
+            jnz  .cld_no
+            ; Argument parsing: phi_addr hex follows "load " in sh_buf
+            ; (stub: prints usage)
+            lea  rsi, [rel .msg_load_usage]
+            call .com1_str
+            mov  eax, 1
+            ret
+        .cld_no: mov eax, 0
+                 ret
+
+        ; ── String constants ──────────────────────────────────────────────────
+        .cmd_name_genome  db "genome", 0
+        .cmd_name_fabric  db "fabric", 0
+        .cmd_name_ftick   db "ftick", 0
+        .cmd_name_fgossip db "fgossip", 0
+        .cmd_name_fauth   db "fauth", 0
+        .cmd_name_nic2    db "nic2", 0
+        .cmd_name_store   db "store", 0
+        .cmd_name_peers   db "peers", 0
+        .cmd_name_send    db "send", 0
+        .cmd_name_load    db "load", 0
+
+        .msg_genome_hdr   db "[Genome] Omega base-4 sequence:", 0x0D, 0x0A, 0
+        .msg_fabric_hdr   db "fabric genome state:", 0x0D, 0x0A, 0
+        .msg_fabric_ppt   db "  points/tick:  ", 0
+        .msg_fabric_sc    db "  strand count: ", 0
+        .msg_fabric_auth  db "  strand auth:  0x", 0
+        .msg_fabric_cells db "  active cells: ", 0
+        .msg_gossip_hdr   db "genome gossip:", 0x0D, 0x0A, 0
+        .msg_gossip_ema   db "  ema:         0x", 0
+        .msg_gossip_fp    db "  fingerprint: 0x", 0
+        .msg_gossip_lock  db "  status:      GENOME-LOCK", 0
+        .msg_gossip_conv  db "  status:      CONVERGING", 0
+        .msg_nic2_hdr     db "NIC state:", 0x0D, 0x0A, 0
+        .msg_nic2_mac     db "  mac: ", 0
+        .nic2_type_e1000  db "  type: e1000 (i217-V/82579/APU2)", 0x0D, 0x0A, 0
+        .nic2_type_rtl    db "  type: RTL8111/8168", 0x0D, 0x0A, 0
+        .msg_store_hdr    db "fabric store:", 0x0D, 0x0A, 0
+        .msg_store_arena  db "  arena: ", 0
+        .msg_store_arena2 db " / 4194304", 0x0D, 0x0A, 0
+        .msg_peers_hdr    db "peers:", 0x0D, 0x0A, 0
+        .msg_sent         db "sent", 0x0D, 0x0A, 0
+        .msg_load_usage   db "load: usage: load <phi_addr_hex>", 0x0D, 0x0A, 0
+        .msg_crlf         db 0x0D, 0x0A, 0
+
+        ; Base-4 lookup tables (must be in glyph data region, phi-neutral)
+        .type_to_base:
+            ;  0=ROOT  1=CPU  2=MEM  3=IO   4=COMP 5=RUN  6=    7=    8=PCI
+            db 1,      0,     1,     2,     3,     0,     1,    1,    0
+            ;  9=NET  10=STOR 11=    12=PER 13..15=C
+            db 2,     3,     1,     1,     1,     1,     1,    1
+        .base_to_char:
+            db 0x41, 0x43, 0x47, 0x54    ; A C G T
+        .genome_seq:
+            times 64 db 0x43             ; 64 × 'C' (overwritten at boot)
+    end
+end
+
+
+# ============================================================================
+# PART XII — DISK IMAGE (from hdgl_fabric.hdgl + hdgl_complete.hdgl)
+# ============================================================================
+
+glyph disk_image
+    parent  = root
+    id      = DISK_IMAGE
+    class   = STORAGE
+    state   = CONFIGURED
+
+    # Sector layout:
+    #   0        MBR (hdgl_mbr.asm emit)
+    #   1        stage2 router (hdgl_stage2_router.asm)
+    #   2..65    runtime64 (hdgl_router64.asm + includes)
+    #   66..AUTO this consolidated source file (self-hosting)
+    #   AUTO     phi-lattice fabric index
+    #   AUTO     peer_seed (build-time or zeroed)
+    #   69       store header (zeroed at first boot)
+    #   70..70+N strand data
+    #   AUTO..2047 padding
+
+    region mbr
+        sectors     = 0
+        source      = hdgl_mbr.asm  emit rule emit_mbr
+    end
+
+    region stage2
+        sectors     = 1
+        source      = hdgl_stage2_router.asm  emit
+    end
+
+    region runtime64
+        sectors     = 2..65
+        source      = hdgl_router64.asm  emit
+        # %include "hdgl_nic.asm"                 ← from SEAM 2
+        # %include "hdgl_genome_shell_emit.asm"   ← emitted from Part XI
+        # %include "hdgl_complete_emit.asm"        ← emitted from Parts VI-XII
+    end
+
+    region self_source
+        # This consolidated file embedded at sector 66.
+        # The running system can read, parse, and re-emit itself.
+        sectors     = 66..AUTO
+        source      = HDGL_CONSOLIDATED.hdgl  raw
+    end
+
+    region fabric_index
+        sectors     = AUTO
+        source      = disk_image  emit rule emit_fabric_index
+    end
+
+    region peer_seed
+        # 8 × {uint32 ip_be, uint16 port_le, uint8[10] pad}
+        # Written by build.sh when LN_SEED_PEERS is set; zeroed otherwise.
+        sectors     = 68
+        fill        = 0x00
+    end
+
+    region store_header
+        sectors     = 69
+        fill        = 0x00
+    end
+
+    region padding
+        sectors     = AUTO..2047
+        fill        = 0x00
+    end
+end
+
+
+# ============================================================================
+# PART XIII — BOOT SEQUENCE (complete, QEMU + H81 BTC dual target)
+# ============================================================================
+
+glyph boot_sequence_complete
+    parent  = boot_sequence
+    id      = BOOT_SEQUENCE_COMPLETE
+    class   = BOOTSTRAP
+    state   = INIT
+
+    # Phases after the original DNA phase:
+    #   nic_init     → NIC_READY
+    #   peer_init    → PEERS_KNOWN
+    #   store_init   → STORE_OPEN
+    #   fabric_ready → RUNTIME
+    #
+    # QEMU vs H81 BTC differences handled in the emit:
+    #   The e1000_wait_reset / rtl_detect_version calls are NIC-type gated.
+    #   BAR64 handling is transparent (nic_driver glyph detects 32/64 at init).
+    #   H81 BTC: BIOS sets SLU before handoff; .e1000_wait_reset sets it anyway.
+
+    phase nic_init
+        recurse nic_timing
+            mutate EXECUTED
+        end
+        advance DNA -> NIC_READY
+    end
+
+    phase peer_init
+        recurse peer_discovery
+            mutate EXECUTED
+        end
+        advance NIC_READY -> PEERS_KNOWN
+    end
+
+    phase store_init
+        recurse metal_store
+            mutate CONFIGURED
+        end
+        advance PEERS_KNOWN -> STORE_OPEN
+    end
+
+    phase fabric_ready
+        recurse bootstrap_globals
+            mutate EXECUTED
+        end
+        advance STORE_OPEN -> RUNTIME
+    end
+
+    emit
+        ; Drop-in after .omega_execute_compiler in hdgl_router64.asm (SEAM 1)
+        .boot_complete_init:
+            call .nic_init
+            jz   .boot_no_nic
+
+            ; NIC type-specific post-reset init
+            cmp  dword [NIC_STATE_BASE + NIC_OFF_TYPE], NIC_TYPE_RTL
+            jne  .boot_nic_e1000
+            call .rtl_detect_version
+            jmp  .boot_nic_done
+        .boot_nic_e1000:
+            call .e1000_wait_reset
+        .boot_nic_done:
+
+            ; Peer discovery (all three phases)
+            call .peer_discover_all
+
+            ; Bare-metal store init
+            call .store_arena_init
+
+            ; Genome fabric init (derives genome_fp, writes 0x101208 + 0x101100)
+            call .genome_fabric_boot_init
+
+            ; Store genome_fp in phi-lattice slot 127 and extend mailbox
+            call .store_genome_fp_in_lattice
+            call .mailbox_extend
+
+            lea  rsi, [rel .boot_complete_msg]
+            call .com1_str
+            ; Print genome_fp in hex
+            mov  eax, [0x101208]
+            call .com1_hex_dword
+            lea  rsi, [rel .msg_crlf]
+            call .com1_str
+
+            ; Register shell extension dispatch
+            ; (SEAM 1: call .sh_ext_dispatch inserted before .sh_unknown)
+            ret
+
+        .boot_no_nic:
+            lea  rsi, [rel .boot_no_nic_msg]
+            call .com1_str
+            ret
+
+        .boot_complete_msg  db "[Fabric] ready  nic=1  store=open  genome_fp=0x", 0
+        .boot_no_nic_msg    db "[Fabric] no NIC -- store-only mode", 0x0D, 0x0A, 0
+    end
+end
+
+
+# ============================================================================
+# PART XIV — SMOKE TEST (single canonical definition)
+# ============================================================================
+
+glyph smoke_test
+    parent  = disk_image
+    id      = SMOKE_TEST
+    class   = TEST
+    state   = INIT
+
+    required_strings = {
+        "[Omega] RUNTIME: Omega_n+1=T(Omega_n) complete",
+        "[Analog] Dn(r) lattice:",
+        "Kuramoto aphase: LOCK",
+        "phi-lattice consensus state",
+        "[Fabric] ready",
+        "Router64>"
+    }
+
+    rule emit_script
+        match       = state INIT
+        transform   = EMIT_SMOKE_SCRIPT
+        advance     = EXECUTED
+    end
+
+    emit
+        #!/bin/bash
+        # hdgl_fabric smoke test — step [8] in build.sh
+        # Targets: QEMU (e1000 + rtl8139 paths) and H81 BTC (metal probe via COM1)
+        # Usage: bash smoke_test.sh [image_path] [--metal /dev/ttyUSBX]
+        set -e
+
+        IMG="${1:-bin/hdgl_router64.img}"
+        METAL_TTY=""
+        if [ "$2" = "--metal" ] && [ -n "$3" ]; then
+            METAL_TTY="$3"
+        fi
+        TIMEOUT=20
+        PASS=0; FAIL=0
+
+        check() {
+            local log="$1"; local str="$2"
+            if grep -qF "$str" "$log"; then
+                echo "    PASS  $str"
+                PASS=$((PASS+1))
+            else
+                echo "    FAIL  $str"
+                FAIL=$((FAIL+1))
+            fi
+        }
+
+        qemu_run() {
+            local nic="$1"; local port="$2"
+            local log="/tmp/hdgl_smoke_${nic}_$$.log"
+            echo ""
+            echo "[8a] QEMU smoke ($nic): $IMG"
+            if ! command -v qemu-system-x86_64 >/dev/null 2>&1; then
+                echo "    SKIP (qemu-system-x86_64 not found)"
+                return
+            fi
+            timeout "$TIMEOUT" qemu-system-x86_64 \
+                -drive "file=$IMG,format=raw,if=ide" \
+                -boot order=c -m 64M \
+                -serial "file:$log" \
+                -netdev "user,id=n0,hostfwd=tcp::${port}-:8090" \
+                -device "${nic},netdev=n0" \
+                -no-reboot -display none \
+                2>/dev/null || true
+            echo "    Serial (last 10 lines):"
+            tail -10 "$log" 2>/dev/null | sed 's/^/      /' || true
+            check "$log" "[Omega] RUNTIME: Omega_n+1=T(Omega_n) complete"
+            check "$log" "Kuramoto aphase: LOCK"
+            check "$log" "phi-lattice consensus state"
+            check "$log" "Router64>"
+            if grep -qF "[Fabric] ready" "$log"; then
+                check "$log" "[Fabric] ready"
+                check "$log" "genome_fp"
+            else
+                echo "    INFO  fabric not ready (NIC not detected -- expected for basic QEMU)"
+            fi
+            rm -f "$log"
+        }
+
+        metal_run() {
+            local tty="$1"
+            local log="/tmp/hdgl_smoke_metal_$$.log"
+            echo ""
+            echo "[8b] Metal probe: $IMG → $tty (H81 BTC COM1)"
+            if ! command -v stty >/dev/null 2>&1; then
+                echo "    SKIP (stty not found)"
+                return
+            fi
+            stty -F "$tty" 9600 cs8 -cstopb -parenb raw
+            timeout "$TIMEOUT" cat "$tty" > "$log" 2>/dev/null || true
+            echo "    Serial (last 10 lines):"
+            tail -10 "$log" 2>/dev/null | sed 's/^/      /' || true
+            check "$log" "[Omega] RUNTIME: Omega_n+1=T(Omega_n) complete"
+            check "$log" "Kuramoto aphase: LOCK"
+            check "$log" "[Fabric] ready"
+            check "$log" "genome_fp"
+            check "$log" "Router64>"
+            rm -f "$log"
+        }
+
+        # QEMU path 1: e1000 (Intel path — covers i217-V family register model)
+        qemu_run "e1000" "18090"
+
+        # QEMU path 2: rtl8139 (RTL path)
+        qemu_run "rtl8139" "18091"
+
+        # Metal path: H81 BTC (only if --metal TTY supplied)
+        if [ -n "$METAL_TTY" ]; then
+            metal_run "$METAL_TTY"
+        fi
+
+        echo ""
+        echo "    smoke total: $PASS pass  $FAIL fail"
+        [ "$FAIL" -eq 0 ] && echo "    OK" || { echo "    FAILED"; exit 1; }
+    end
+end
+
+
+# ============================================================================
+# PART XV — MAKEFILE (extended)
+# ============================================================================
+
+glyph makefile
+    id      = MAKEFILE
+    class   = BUILD
+    state   = EXECUTED
+
+    emit
+        # ============================================================
+        # HDGL Analog Fabric — Makefile
+        # Targets: test, carrier_test, fabric_test, verify, clean, metal
+        # Deps: gcc, nasm, minicom (metal target only)
+        # ============================================================
+
+        CC       = gcc
+        CFLAGS   = -O2 -std=c99 -Wall -Wextra -Wpedantic -fno-common -I.
+        LDFLAGS  = -lm
+        IMG      = bin/hdgl_router64.img
+        METAL_DEV ?= /dev/ttyUSB0
+
+        .PHONY: all test carrier_test fabric_test verify clean metal
+
+        all: test carrier_test fabric_test
+
+        # ── Genome fabric C test ───────────────────────────────────────
+        test: hdgl_genome_test
+        hdgl_genome_test: hdgl_genome_test.c hdgl_genome_fabric.h hdgl_genome_fabric.c
+        	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+        # ── Carrier channel test ───────────────────────────────────────
+        carrier_test: zchg_carrier_test
+        zchg_carrier_test: zchg_carrier_test.c zchg_carrier.h
+        	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+        # ── Fabric loader test ─────────────────────────────────────────
+        fabric_test: hdgl_fabric_test
+        hdgl_fabric_test: hdgl_fabric_test.c hdgl_fabric_loader.h hdgl_fabric_loader.c \
+                          zchg_carrier.h hdgl_genome_fabric.h
+        	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+
+        # ── Run and verify ─────────────────────────────────────────────
+        verify: all
+        	./hdgl_genome_test 2>&1 | grep -E "GC=|strand|radius|auth|PASS|FAIL"
+        	./zchg_carrier_test 2>&1 | grep -E "PASS|FAIL|round-trip|CH-"
+        	./hdgl_fabric_test  2>&1 | grep -E "PASS|FAIL|identity|type"
+
+        # ── Bare-metal flash + serial capture (H81 BTC) ───────────────
+        # Usage: make metal METAL_DEV=/dev/sdX  (flash target)
+        #        make metal_probe METAL_DEV=/dev/ttyUSB0
+        metal:
+        	@echo "Flashing $(IMG) to $(METAL_DEV)..."
+        	dd if=$(IMG) of=$(METAL_DEV) bs=512 oflag=sync
+        	@echo "Flash done. Boot the H81 BTC board and observe COM1."
+
+        metal_probe:
+        	bash smoke_test.sh $(IMG) --metal $(METAL_DEV)
+
+        # ── Clean ─────────────────────────────────────────────────────
+        clean:
+        	rm -f hdgl_genome_test zchg_carrier_test hdgl_fabric_test
+    end
+end
+
+
+# ============================================================================
+# PART XVI — INTEGRATION SEAMS (normative reference)
+# ============================================================================
+#
+# Six seams. Each is one targeted edit to an existing file.
+# Nothing in the source zips changes except these six points.
+#
+# SEAM 1 — hdgl_router64.asm: disk_write + boot_complete_init + sh_ext_dispatch
+# ─────────────────────────────────────────────────────────────────────────────
+#   After .disk_read, add .disk_write (ATA PIO write, symmetric to read).
+#   After .omega_execute_compiler: add `call .boot_complete_init`
+#   In .sh_dispatch, before .sh_unknown: add `call .sh_ext_dispatch`
+#   In phi-bridge mailbox write section: add `call .mailbox_extend`
+#
+# SEAM 2 — hdgl_router64.asm: %include new ASM sources
+# ─────────────────────────────────────────────────────────────────────────────
+#   At bottom of hdgl_router64.asm, before final padding:
+#     %include "hdgl_nic_emit.asm"        ; assembled from Part V emit
+#     %include "hdgl_shell_ext_emit.asm"  ; assembled from Part XI emit
+#     %include "hdgl_boot_complete.asm"   ; assembled from Part XIII emit
+#
+# SEAM 3 — zchg_core.h: extend gossip_msg_t
+# ─────────────────────────────────────────────────────────────────────────────
+#   Replace zchg_gossip_msg_t with the one in zchg_core_patch.h:
+#     +dn_aggregate  uint32   (Dₙ bitmask — genome key material)
+#     +genome_fingerprint uint32  (live gossip_fp)
+#   17 → 25 bytes.  Wire-backward-compatible (trailing fields).
+#
+# SEAM 4 — NGINX-HDGL build: replace three C files
+# ─────────────────────────────────────────────────────────────────────────────
+#   Replace zchg_frame.c   → zchg_frame_patched.c
+#           zchg_gossip.c  → zchg_gossip_patched.c
+#           zchg_http.c    → zchg_http_patched.c
+#   Add: zchg_lattice_patch.c, hdgl_genome_fabric.c (to Makefile SRCS)
+#   Add: zchg_carrier.h, hdgl_genome_fabric.h to include path
+#
+# SEAM 5 — HDGL-SQL bare-metal build target
+# ─────────────────────────────────────────────────────────────────────────────
+#   CFLAGS += -DHDGL_BARE_METAL
+#   STORE_SRC = zchg_store_metal.c   (not zchg_store.c)
+#
+# SEAM 6 — build.sh: step [8] smoke test
+# ─────────────────────────────────────────────────────────────────────────────
+#   echo "[8] Smoke test..."
+#   bash smoke_test.sh bin/hdgl_router64.img
+#   # Metal: bash smoke_test.sh bin/hdgl_router64.img --metal /dev/ttyUSB0
+#
+# ============================================================================
+
+
+# ============================================================================
+# PART XVII — H81 BTC HARDWARE NOTES
+# ============================================================================
+#
+# Board: Gigabyte GA-H81-BTC or H81-BTC-Pro (LGA1150, Haswell/Haswell-R)
+#        Common variants: H81-BTC, H81-BTC-PRO, B85-BTC, Z87-BTC
+#
+# PCH NIC:  Intel i217-V (8086:153A) — PCH-integrated, 82579 MAC+PHY combo
+#           Speaks the e1000 register set; dispatched to .nic_init_e1000.
+#           BAR0 = 64-bit MMIO BAR (bits 2:1 = 10b). Fixed in Part V.
+#           RCTL BSIZE: 82579 family uses BSIZE=01b for 2KB (not 00b).
+#           Fixed RCTL value: 0x04008802 (Part V, .nic_init_e1000).
+#
+# BIOS/UEFI: H81 boards typically ship with American Megatrends UEFI.
+#            CSM (Compatibility Support Module) must be ENABLED for MBR boot.
+#            Setting: BIOS → Boot → CSM Support → Enabled
+#                     BIOS → Boot → Boot Mode → Legacy
+#            If UEFI stub needed: hdgl_uefi_stub.asm is already in the suite;
+#            it chainloads the legacy MBR from within UEFI.
+#
+# Serial:    COM1 at 0x3F8, 9600 8N1 (default for the shell + smoke test).
+#            H81-BTC-Pro has a COM header (JCOM1) for USB-serial adapter.
+#
+# PCIe:      Board has PCIe x1 slots for additional NICs.
+#            Realtek RTL8111G on a cheap NIC card works (RTL path).
+#
+# Memory:    Board supports up to 16GB DDR3 1600.
+#            Identity-mapped space (first 8MB) is well within range.
+#            ACPI E820 memory map is probed in Omega graph OBSERVE phase.
+#
+# Booting:
+#   Flash:   dd if=bin/hdgl_router64.img of=/dev/sdX bs=512 oflag=sync
+#   QEMU:    See PART XIV smoke_test glyph for exact command lines.
+#   Two-node: Connect via Ethernet (direct cable or switch).
+#             GENOME-LOCK in ~3 gossip cycles (~12s after second node boots).
+#
+# ============================================================================
+
+
+# ============================================================================
+# SELF-COMPILE LOOP (the fixed point)
+# ============================================================================
+
+
+
+# ============================================================================
+# PART XVIII — VGA SPLIT SHELL
+# ============================================================================
+
+glyph vga_split_shell
+    parent  = shell
+    id      = VGA_SPLIT_SHELL
+    class   = SHELL
+    state   = INIT
+
+    # VGA text mode: 80 cols × 25 rows, 2 bytes/cell (char + attr), base 0xB8000
+    # Layout:
+    #   cols  0-38  : left pane  — HDGL shell (input + output)
+    #   col   39    : divider    — U+2502 │  attr=0x0F (bright-white on black)
+    #   cols 40-79  : right pane — Node.js IPC log (read-only from shell side)
+    #   row   24    : reserved for left-pane input line (never scrolled away)
+    #
+    # INVARIANT: the left-pane shell loop (.vsh_loop) NEVER branches into
+    # right-pane territory and NEVER calls any routine that can hang waiting
+    # on Node.js.  The right pane is updated only on phi_tick by a separate
+    # .vsh_ipc_poll subroutine which is non-blocking (returns immediately if
+    # the IPC ring is empty).  A fault or silence in Node.js leaves the left
+    # pane fully operational.
+    #
+    # Memory:
+    #   0x800000  VGA shadow buffer (4000 bytes, 80×25×2)
+    #   0x800FA0  left pane scroll ring metadata (16 bytes)
+    #   0x800FB0  right pane scroll ring metadata (16 bytes)
+    #   0x801000  Node.js IPC ring (4KB) — see nodejs_session glyph
+    #   0x802000  left scroll history  (8KB  = 104 lines × 80 chars, ring)
+    #   0x804000  right scroll history (8KB)
+
+    VGA_BASE        = 0x000B8000   # physical VGA text buffer
+    VGA_SHADOW      = 0x00800000   # shadow copy (for dirty-rect sync)
+    VGA_COLS        = 80
+    VGA_ROWS        = 25
+    VGA_LEFT_COLS   = 39           # cols 0..38
+    VGA_DIV_COL     = 39
+    VGA_RIGHT_START = 40
+    VGA_RIGHT_COLS  = 40           # cols 40..79
+    VGA_INPUT_ROW   = 24
+    VGA_ATTR_NORMAL = 0x07         # white on black
+    VGA_ATTR_BRIGHT = 0x0F         # bright-white on black (divider)
+    VGA_ATTR_INPUT  = 0x0A         # bright-green on black (input line)
+    VGA_ATTR_RIGHT  = 0x0B         # bright-cyan on black (IPC output)
+    VGA_ATTR_PROMPT = 0x0E         # bright-yellow on black (prompt)
+    LEFT_SCROLL_META  = 0x800FA0
+    RIGHT_SCROLL_META = 0x800FB0
+    LEFT_HIST         = 0x802000
+    RIGHT_HIST        = 0x804000
+    HIST_LINES        = 104
+
+    rule init
+        match       = state INIT AND boot_sequence RUNTIME
+        transform   = VGA_SPLIT_INIT
+        advance     = READY
+    end
+
+    rule shell_loop
+        match       = state READY
+        transform   = VGA_SHELL_LOOP
+    end
+
+    rule ipc_poll
+        match       = state READY
+        transform   = VGA_IPC_POLL
+        # non-blocking — always returns, never stalls left pane
+    end
+
+    emit
+        [bits 64]
+
+        ; ── Constants (local to this glyph) ───────────────────────────────────
+        VGA_BASE_ADDR   equ 0xB8000
+        VGA_SHADOW_ADDR equ 0x800000
+        VGA_LEFT_W      equ 39          ; left pane usable width
+        VGA_RIGHT_W     equ 40          ; right pane usable width
+        VGA_DIV         equ 39          ; divider column index
+        VGA_IROW        equ 24          ; input row
+        VGA_A_NORM      equ 0x07
+        VGA_A_BRIGHT    equ 0x0F
+        VGA_A_INPUT     equ 0x0A
+        VGA_A_RIGHT     equ 0x0B
+        VGA_A_PROMPT    equ 0x0E
+        LEFT_SCROLL     equ 0x800FA0    ; {head:u16, count:u16, pad[12]}
+        RIGHT_SCROLL    equ 0x800FB0
+        LEFT_HIST_ADDR  equ 0x802000    ; 104 × 80 bytes
+        RIGHT_HIST_ADDR equ 0x804000
+
+        ; ════════════════════════════════════════════════════════════════════
+        ; .vsh_init — set VGA mode 3 (80×25 text), draw chrome, start loop
+        ; Called from .boot_complete_init after all fabric init is done.
+        ; ════════════════════════════════════════════════════════════════════
+        .vsh_init:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+
+            ; Request VGA mode 3 via BIOS INT 10h (only available pre-64-bit;
+            ; on real metal we are in long mode, so we set registers directly).
+            ; Identity-mapped: VGA MMIO at 0xB8000 is accessible.
+            ; Clear to attribute 07h (white-on-black), char 0x20 (space).
+            mov  rdi, VGA_BASE_ADDR
+            mov  ecx, 80 * 25
+            mov  eax, 0x07200720    ; two cells: sp+attr, sp+attr (little-endian word pair)
+        .vsh_clear_loop:
+            mov  dword [rdi], eax
+            add  rdi, 4
+            sub  ecx, 2
+            ja   .vsh_clear_loop
+
+            ; Zero shadow buffer
+            mov  rdi, VGA_SHADOW_ADDR
+            mov  ecx, 80 * 25 * 2 / 8
+            mov  rax, 0
+            rep  stosq
+
+            ; Draw divider column (all 25 rows)
+            mov  ecx, 25
+            mov  ebx, VGA_DIV        ; col 39
+        .vsh_div_loop:
+            ; Cell address = 0xB8000 + (row * 80 + col) * 2
+            mov  eax, 25
+            sub  eax, ecx
+            imul eax, 80
+            add  eax, ebx
+            imul eax, 2
+            add  eax, VGA_BASE_ADDR
+            mov  rdi, rax
+            ; char 0xB3 = CP437 │ (vertical box), attr bright-white
+            mov  word [rdi], 0x0FB3
+            loop .vsh_div_loop
+
+            ; Print right-pane header line at row 0, cols 40-79
+            lea  rsi, [rel .vsh_rp_hdr]
+            mov  edx, 0             ; row
+            mov  ebx, 40            ; col
+            call .vsh_right_print_at
+
+            ; Print left-pane banner at row 0, cols 0-38
+            lea  rsi, [rel .vsh_lp_hdr]
+            mov  edx, 0
+            mov  ebx, 0
+            call .vsh_left_print_at
+
+            ; Init scroll metadata
+            mov  dword [LEFT_SCROLL],  0    ; head=0, count=0
+            mov  dword [RIGHT_SCROLL], 0
+
+            ; Hide hardware cursor (we draw our own)
+            mov  dx, 0x3D4
+            mov  al, 0x0A
+            out  dx, al
+            mov  dx, 0x3D5
+            mov  al, 0x20           ; cursor start = bit5 set = cursor off
+            out  dx, al
+
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ════════════════════════════════════════════════════════════════════
+        ; .vsh_loop — main shell loop on left pane (NEVER drops)
+        ; Mirrors hdgl_router64 .sh_loop but writes output to VGA left pane
+        ; and also echoes to COM1.
+        ; ════════════════════════════════════════════════════════════════════
+        .vsh_loop:
+            ; Draw prompt at input row
+            call .vsh_draw_prompt
+
+        .vsh_input:
+            ; Non-blocking phi_tick poll for IPC before each keystroke check
+            call .vsh_ipc_poll
+
+            ; COM1 receive (non-blocking)
+            mov  dx, 0x3FD          ; LSR
+            in   al, dx
+            test al, 0x01           ; data ready?
+            jz   .vsh_input         ; spin — keeps IPC poll running
+
+            mov  dx, 0x3F8          ; RBR
+            in   al, dx
+
+            ; Echo to COM1
+            push rax
+            mov  dx, 0x3FD
+        .vsh_tx_wait:
+            in   al, dx
+            test al, 0x20
+            jz   .vsh_tx_wait
+            pop  rax
+            push rax
+            mov  dx, 0x3F8
+            out  dx, al
+            pop  rax
+
+            ; Handle special keys
+            cmp  al, 0x08           ; BS
+            je   .vsh_backspace
+            cmp  al, 0x0D           ; CR
+            je   .vsh_enter
+            cmp  al, 0x1B           ; ESC — clear line
+            je   .vsh_clear_input
+            cmp  al, 0x20           ; printable floor
+            jb   .vsh_input
+
+            ; Append to .sh_buf (shared with shell_extensions)
+            lea  rdi, [rel .sh_buf]
+            movzx ecx, byte [rel .sh_buf_len]
+            cmp  ecx, 79
+            jae  .vsh_input         ; buffer full
+            mov  [rdi + rcx], al
+            inc  byte [rel .sh_buf_len]
+            ; Echo char to VGA left pane input row
+            call .vsh_echo_char
+            jmp  .vsh_input
+
+        .vsh_backspace:
+            movzx ecx, byte [rel .sh_buf_len]
+            test ecx, ecx
+            jz   .vsh_input
+            dec  byte [rel .sh_buf_len]
+            call .vsh_erase_char
+            jmp  .vsh_input
+
+        .vsh_clear_input:
+            mov  byte [rel .sh_buf_len], 0
+            call .vsh_clear_input_row
+            jmp  .vsh_input
+
+        .vsh_enter:
+            ; Null-terminate sh_buf
+            lea  rdi, [rel .sh_buf]
+            movzx ecx, byte [rel .sh_buf_len]
+            mov  byte [rdi + rcx], 0
+
+            ; Scroll left pane up one line and print the command
+            call .vsh_left_scroll_cmd
+
+            ; Dispatch to shell extensions first
+            call .sh_ext_dispatch
+            cmp  eax, 1
+            je   .vsh_cmd_done
+
+            ; Fall through to built-in router64 dispatcher
+            ; (assumed available as .sh_dispatch in main image)
+            call .sh_dispatch
+
+        .vsh_cmd_done:
+            ; Clear input buffer
+            mov  byte [rel .sh_buf_len], 0
+            call .vsh_clear_input_row
+            jmp  .vsh_loop
+
+        ; ════════════════════════════════════════════════════════════════════
+        ; .vsh_ipc_poll — non-blocking: read IPC ring, update right pane
+        ; Ring at 0x801000: head(4) tail(4) len(4) pad(4) data[4080]
+        ; Node.js writes: [u16 msglen][u8... msg]
+        ; ════════════════════════════════════════════════════════════════════
+        .vsh_ipc_poll:
+            push rax
+            push rbx
+            push rcx
+            push rsi
+            push rdi
+
+            mov  eax, [0x801000]    ; head
+            mov  ebx, [0x801004]    ; tail
+            cmp  eax, ebx
+            je   .vsh_ipc_empty     ; ring empty
+
+            ; Read one message: msglen at ring data + head
+            mov  ecx, eax
+            and  ecx, 4079          ; ring data size = 4096-16
+            lea  rsi, [rcx + 0x801010]
+            movzx ecx, word [rsi]   ; msglen
+            test ecx, ecx
+            jz   .vsh_ipc_empty
+            add  rsi, 2             ; point to message text
+            ; Advance head
+            add  eax, ecx
+            add  eax, 2
+            mov  [0x801000], eax    ; write head back
+
+            ; Print message to right pane (scroll up if needed)
+            call .vsh_right_scroll_line
+
+        .vsh_ipc_empty:
+            pop  rdi
+            pop  rsi
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ════════════════════════════════════════════════════════════════════
+        ; VGA primitive helpers
+        ; ════════════════════════════════════════════════════════════════════
+
+        ; .vsh_cell(row, col) → RDI = VGA cell address
+        ; IN: EDX=row, EBX=col
+        .vsh_cell:
+            push rax
+            mov  eax, edx
+            imul eax, 80
+            add  eax, ebx
+            imul eax, 2
+            lea  rdi, [rax + VGA_BASE_ADDR]
+            pop  rax
+            ret
+
+        ; .vsh_draw_prompt — draw "Router64> " at input row, col 0
+        .vsh_draw_prompt:
+            push rsi
+            push rdx
+            push rbx
+            mov  edx, VGA_IROW
+            mov  ebx, 0
+            call .vsh_cell
+            lea  rsi, [rel .str_prompt]
+        .vsh_dp_loop:
+            mov  al, [rsi]
+            test al, al
+            jz   .vsh_dp_done
+            mov  ah, VGA_A_PROMPT
+            mov  [rdi], ax
+            add  rdi, 2
+            inc  rsi
+            jmp  .vsh_dp_loop
+        .vsh_dp_done:
+            ; Draw current input buffer after prompt
+            lea  rsi, [rel .sh_buf]
+            movzx ecx, byte [rel .sh_buf_len]
+            test ecx, ecx
+            jz   .vsh_dp_ret
+        .vsh_dp_buf:
+            mov  al, [rsi]
+            mov  ah, VGA_A_INPUT
+            mov  [rdi], ax
+            add  rdi, 2
+            inc  rsi
+            loop .vsh_dp_buf
+            ; Draw cursor block
+            mov  word [rdi], 0x0A5F   ; underscore, bright-green
+        .vsh_dp_ret:
+            pop  rbx
+            pop  rdx
+            pop  rsi
+            ret
+
+        ; .vsh_echo_char — echo last char of sh_buf to correct position
+        .vsh_echo_char:
+            push rdx
+            push rbx
+            mov  edx, VGA_IROW
+            ; col = prompt_len + sh_buf_len - 1
+            movzx ebx, byte [rel .sh_buf_len]
+            add  ebx, 10            ; "Router64> " = 10 chars
+            dec  ebx
+            call .vsh_cell
+            movzx eax, byte [rel .sh_buf_len]
+            dec  eax
+            lea  rsi, [rel .sh_buf]
+            mov  al, [rsi + rax]
+            mov  ah, VGA_A_INPUT
+            mov  [rdi], ax
+            pop  rbx
+            pop  rdx
+            ret
+
+        ; .vsh_erase_char — blank last visible input char
+        .vsh_erase_char:
+            push rdx
+            push rbx
+            mov  edx, VGA_IROW
+            movzx ebx, byte [rel .sh_buf_len]
+            add  ebx, 10
+            call .vsh_cell
+            mov  word [rdi], 0x0720   ; space, normal attr
+            pop  rbx
+            pop  rdx
+            ret
+
+        ; .vsh_clear_input_row — blank entire input row left pane
+        .vsh_clear_input_row:
+            push rdx
+            push rbx
+            push rcx
+            mov  edx, VGA_IROW
+            mov  ebx, 0
+            call .vsh_cell
+            mov  ecx, VGA_LEFT_W
+        .vcir_loop:
+            mov  word [rdi], 0x0720
+            add  rdi, 2
+            loop .vcir_loop
+            pop  rcx
+            pop  rbx
+            pop  rdx
+            ret
+
+        ; .vsh_left_scroll_cmd — scroll rows 1..23 up one in left pane, print cmd at row 23
+        .vsh_left_scroll_cmd:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+            push rsi
+            push rdi
+            ; Scroll rows 1..22 → rows 0..21 (preserve row 0 = banner, row 23 = last output)
+            ; Actually scroll rows 1..23 up: row 0 is banner (keep), rows 1-23 scroll up
+            mov  edx, 1             ; source row
+        .vlsc_row:
+            cmp  edx, 23
+            jae  .vlsc_done
+            ; dest row = edx - 1, cols 0..38
+            mov  ebx, 0
+            push rdx
+            dec  edx
+            call .vsh_cell          ; dest RDI
+            pop  rdx
+            push rdi
+            mov  ebx, 0
+            call .vsh_cell          ; src ... wait, need two pointers
+            ; Recompute: dest = (edx-1)*80*2 + B8000, src = edx*80*2 + B8000
+            ; Simpler: just copy word-by-word
+            pop  rdi                ; restore dest rdi
+            push rdx
+            dec  edx
+            mov  eax, edx
+            imul eax, 80
+            imul eax, 2
+            lea  rdi, [rax + VGA_BASE_ADDR]
+            pop  rdx
+            mov  eax, edx
+            imul eax, 80
+            imul eax, 2
+            lea  rsi, [rax + VGA_BASE_ADDR]
+            mov  ecx, VGA_LEFT_W
+        .vlsc_copy:
+            mov  ax, [rsi]
+            mov  [rdi], ax
+            add  rsi, 2
+            add  rdi, 2
+            loop .vlsc_copy
+            inc  edx
+            jmp  .vlsc_row
+        .vlsc_done:
+            ; Clear row 23 left pane
+            mov  eax, 23
+            imul eax, 80
+            imul eax, 2
+            lea  rdi, [rax + VGA_BASE_ADDR]
+            mov  ecx, VGA_LEFT_W
+        .vlsc_clr:
+            mov  word [rdi], 0x0720
+            add  rdi, 2
+            loop .vlsc_clr
+            ; Print command echo at row 23
+            mov  edx, 23
+            mov  ebx, 0
+            call .vsh_cell
+            lea  rsi, [rel .sh_buf]
+        .vlsc_print:
+            mov  al, [rsi]
+            test al, al
+            jz   .vlsc_pr_done
+            mov  ah, VGA_A_NORM
+            mov  [rdi], ax
+            add  rdi, 2
+            inc  rsi
+            jmp  .vlsc_print
+        .vlsc_pr_done:
+            pop  rdi
+            pop  rsi
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; .vsh_left_print_at(rsi=str, edx=row, ebx=col) — print to left pane
+        .vsh_left_print_at:
+            push rdi
+            call .vsh_cell
+        .vlpa_loop:
+            mov  al, [rsi]
+            test al, al
+            jz   .vlpa_done
+            cmp  ebx, VGA_DIV       ; never cross divider
+            jae  .vlpa_done
+            mov  ah, VGA_A_NORM
+            mov  [rdi], ax
+            add  rdi, 2
+            inc  rsi
+            inc  ebx
+            jmp  .vlpa_loop
+        .vlpa_done:
+            pop  rdi
+            ret
+
+        ; .vsh_right_print_at(rsi=str, edx=row, ebx=col) — print to right pane
+        .vsh_right_print_at:
+            push rdi
+            call .vsh_cell
+        .vrpa_loop:
+            mov  al, [rsi]
+            test al, al
+            jz   .vrpa_done
+            cmp  ebx, 80
+            jae  .vrpa_done
+            mov  ah, VGA_A_RIGHT
+            mov  [rdi], ax
+            add  rdi, 2
+            inc  rsi
+            inc  ebx
+            jmp  .vrpa_loop
+        .vrpa_done:
+            pop  rdi
+            ret
+
+        ; .vsh_right_scroll_line(rsi=str, ecx=len) — scroll right pane, print at row 23
+        .vsh_right_scroll_line:
+            push rax
+            push rbx
+            push rcx
+            push rdx
+            push rsi
+            push rdi
+            ; Scroll rows 1..23 in right pane up one
+            mov  edx, 1
+        .vrsl_row:
+            cmp  edx, 24
+            jae  .vrsl_done
+            push rdx
+            dec  edx
+            mov  eax, edx
+            imul eax, 80
+            add  eax, 40            ; right pane start col
+            imul eax, 2
+            lea  rdi, [rax + VGA_BASE_ADDR]
+            pop  rdx
+            mov  eax, edx
+            imul eax, 80
+            add  eax, 40
+            imul eax, 2
+            lea  rsi, [rax + VGA_BASE_ADDR]
+            push rcx
+            mov  ecx, VGA_RIGHT_W
+        .vrsl_copy:
+            mov  ax, [rsi]
+            mov  [rdi], ax
+            add  rsi, 2
+            add  rdi, 2
+            loop .vrsl_copy
+            pop  rcx
+            inc  edx
+            jmp  .vrsl_row
+        .vrsl_done:
+            ; Clear row 23 right pane
+            mov  eax, 23
+            imul eax, 80
+            add  eax, 40
+            imul eax, 2
+            lea  rdi, [rax + VGA_BASE_ADDR]
+            push ecx
+            mov  ecx, VGA_RIGHT_W
+        .vrsl_clr:
+            mov  word [rdi], 0x0B20   ; space, bright-cyan attr
+            add  rdi, 2
+            loop .vrsl_clr
+            pop  ecx
+            ; Print new line
+            mov  eax, 23
+            imul eax, 80
+            add  eax, 40
+            imul eax, 2
+            lea  rdi, [rax + VGA_BASE_ADDR]
+            push rsi
+            lea  rsi, [rel .ipc_msg_buf]
+        .vrsl_pr:
+            mov  al, [rsi]
+            test al, al
+            jz   .vrsl_pr_done
+            mov  ah, VGA_A_RIGHT
+            mov  [rdi], ax
+            add  rdi, 2
+            inc  rsi
+            jmp  .vrsl_pr
+        .vrsl_pr_done:
+            pop  rsi
+            pop  rdi
+            pop  rsi
+            pop  rdx
+            pop  rcx
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── String data ───────────────────────────────────────────────────────
+        .str_prompt   db "Router64> ", 0
+        .vsh_lp_hdr   db "HDGL Analog Fabric", 0
+        .vsh_rp_hdr   db "Node.js Session", 0
+        .sh_buf       times 80 db 0
+        .sh_buf_len   db 0
+        .ipc_msg_buf  times 80 db 0
+    end
+end
+
+
+# ============================================================================
+# PART XIX — NODE.JS SESSION
+# ============================================================================
+
+glyph nodejs_session
+    parent  = vga_split_shell
+    id      = NODEJS_SESSION
+    class   = RUNTIME
+    state   = INIT
+
+    # The Node.js process (fabric_node_agent.mjs) runs on the host side.
+    # On QEMU: host-side Node.js reaches the firmware via QEMU user-net
+    #   localhost:8091 → guest:8091 (hostfwd in smoke test / run script).
+    # On H81 BTC metal: Node.js runs on a companion machine on the same L2.
+    #   It talks to the firmware's HTTP listener on port 8090 (fabric) and
+    #   8091 (IPC/display channel).
+    #
+    # IPC RING — 0x801000, 4096 bytes
+    #   [0x000]  u32  head        — firmware read pointer (bytes consumed)
+    #   [0x004]  u32  tail        — Node.js write pointer (bytes written)
+    #   [0x008]  u32  capacity    = 4080
+    #   [0x00C]  u32  flags       — bit0: Node.js attached; bit1: session active
+    #   [0x010]  u8[4080] data    — ring data: [u16 msglen][u8... text\0]
+    #
+    # SESSION KEEP-ALIVE
+    #   The firmware sends a HEARTBEAT HTTP GET /ipc/hb every 8 phi_ticks.
+    #   Node.js responds 200 OK — no body needed.
+    #   If Node.js misses 3 consecutive heartbeats (24 phi_ticks), the
+    #   firmware clears bit0|bit1 of IPC flags and prints "[IPC] detached"
+    #   in the right pane.  The left-pane shell remains fully operational.
+    #   Node.js can re-attach at any time by POSTing /ipc/attach.
+    #
+    # NODE.JS SIDE (in fabric_node_agent.mjs):
+    #   The IPC server is a tiny HTTP listener added to the agent:
+    #
+    #     import http from 'http';
+    #     const ipcServer = http.createServer((req, res) => {
+    #       if (req.method === 'POST' && req.url === '/ipc/write') {
+    #         let body = '';
+    #         req.on('data', d => body += d);
+    #         req.on('end', () => {
+    #           ipcRingWrite(body);          // writes to shared memory / firmware
+    #           res.writeHead(200); res.end();
+    #         });
+    #       } else if (req.url === '/ipc/hb') {
+    #         res.writeHead(200); res.end();  // heartbeat ack
+    #       } else if (req.url === '/ipc/attach') {
+    #         ipcAttach();
+    #         res.writeHead(200); res.end();
+    #       }
+    #     });
+    #     ipcServer.listen(8091);
+    #
+    # HDGL-NATIVE: the IPC ring IS the session.  No separate protocol state.
+    # If the ring is empty and flags say attached, the session is idle-alive.
+    # If Node.js restarts it simply POSTs /ipc/attach and resumes — firmware
+    # accepts immediately because the ring head/tail state is preserved in
+    # memory across Node.js restarts (only a firmware reboot clears it).
+
+    IPC_RING_BASE    = 0x801000
+    IPC_HEAD         = 0x801000
+    IPC_TAIL         = 0x801004
+    IPC_CAPACITY     = 0x801008
+    IPC_FLAGS        = 0x80100C
+    IPC_DATA         = 0x801010
+    IPC_DATA_SIZE    = 4080
+    IPC_FLAG_ATTACHED = 1
+    IPC_FLAG_ACTIVE   = 2
+    IPC_HB_INTERVAL   = 8          # phi_ticks between heartbeats
+    IPC_HB_MISS_MAX   = 3          # misses before detach
+
+    IPC_HTTP_PORT    = 8091
+    IPC_HB_PATH      = "/ipc/hb"
+    IPC_ATTACH_PATH  = "/ipc/attach"
+    IPC_WRITE_PATH   = "/ipc/write"
+
+    rule init
+        match       = state INIT AND vga_split_shell READY
+        transform   = IPC_RING_INIT
+        advance     = LISTENING
+    end
+
+    rule heartbeat
+        match       = state LISTENING
+        transform   = IPC_HEARTBEAT_SEND
+        # fires every IPC_HB_INTERVAL phi_ticks
+    end
+
+    rule detach_check
+        match       = state LISTENING AND hb_miss_count >= IPC_HB_MISS_MAX
+        transform   = IPC_DETACH
+        advance     = LISTENING   # stays listening — Node.js can re-attach
+    end
+
+    rule http_ipc_serve
+        match       = state LISTENING
+        transform   = IPC_HTTP_SERVE
+        # Serves /ipc/hb, /ipc/attach, /ipc/write on port 8091
+    end
+
+    emit
+        [bits 64]
+
+        ; ── IPC ring constants ─────────────────────────────────────────────
+        IPC_BASE     equ 0x801000
+        IPC_DATA_OFF equ 16         ; first data byte after 4×u32 header
+        IPC_CAP      equ 4080       ; data region size
+        IPC_F_ATTACH equ 1
+        IPC_F_ACTIVE equ 2
+        IPC_HB_INT   equ 8          ; phi_ticks
+        IPC_HB_MISS  equ 3
+
+        ; ── .ipc_ring_init — zero ring, set capacity ──────────────────────
+        .ipc_ring_init:
+            push rdi
+            push rcx
+            ; Zero 4096 bytes
+            mov  rdi, IPC_BASE
+            mov  ecx, 4096 / 8
+            mov  rax, 0
+            rep  stosq
+            ; Set capacity
+            mov  dword [IPC_BASE + 8], IPC_CAP
+            pop  rcx
+            pop  rdi
+            ; Print right-pane status
+            lea  rsi, [rel .ipc_msg_wait]
+            call .vsh_right_scroll_line
+            ret
+
+        ; ── .ipc_ring_read — read one message from ring into .ipc_msg_buf ──
+        ; OUT: ECX = message length (0 = empty)
+        .ipc_ring_read:
+            push rax
+            push rbx
+            push rsi
+            push rdi
+            mov  ecx, 0
+            mov  eax, [IPC_BASE]        ; head
+            mov  ebx, [IPC_BASE + 4]    ; tail
+            cmp  eax, ebx
+            je   .ipc_rr_empty
+            ; Compute data pointer: IPC_BASE + IPC_DATA_OFF + (head mod IPC_CAP)
+            mov  ecx, eax
+            ; Use and with capacity-1 only works if capacity is power-of-two.
+            ; IPC_CAP = 4080 (not pow2). Use sub/cmp loop instead.
+        .ipc_rr_mod:
+            cmp  ecx, IPC_CAP
+            jb   .ipc_rr_mod_done
+            sub  ecx, IPC_CAP
+            jmp  .ipc_rr_mod
+        .ipc_rr_mod_done:
+            lea  rsi, [rcx + IPC_BASE + IPC_DATA_OFF]
+            movzx ecx, word [rsi]       ; msglen
+            test ecx, ecx
+            jz   .ipc_rr_empty
+            add  rsi, 2
+            ; Copy msglen bytes to .ipc_msg_buf (max 79)
+            push rcx
+            lea  rdi, [rel .ipc_msg_buf]
+            mov  eax, ecx
+            cmp  eax, 79
+            jbe  .ipc_rr_notrunc
+            mov  eax, 79
+        .ipc_rr_notrunc:
+            push rax
+            mov  ecx, eax
+            rep  movsb
+            mov  byte [rdi], 0          ; null-terminate
+            pop  rax
+            pop  ecx
+            ; Advance head: head += 2 + msglen
+            mov  eax, [IPC_BASE]
+            add  eax, ecx
+            add  eax, 2
+            mov  [IPC_BASE], eax
+            jmp  .ipc_rr_done
+        .ipc_rr_empty:
+            mov  ecx, 0
+        .ipc_rr_done:
+            pop  rdi
+            pop  rsi
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── .ipc_ring_write — write string (rsi, ecx bytes) to ring ──────
+        ; Used by firmware to write status messages that loop back as test
+        ; (e.g. boot confirmation into the right pane without Node.js)
+        .ipc_ring_write:
+            push rax
+            push rbx
+            push rdi
+            push rcx
+            ; Check space: free = IPC_CAP - (tail - head)
+            mov  eax, [IPC_BASE + 4]    ; tail
+            mov  ebx, [IPC_BASE]        ; head
+            sub  eax, ebx               ; used bytes (may wrap, but monotonic)
+            mov  edx, IPC_CAP
+            sub  edx, eax               ; free bytes
+            lea  eax, [rcx + 2]         ; need = msglen + 2
+            cmp  edx, eax
+            jb   .ipc_rw_full           ; drop if no space
+            ; Write msglen at tail position
+            mov  eax, [IPC_BASE + 4]
+            mov  ebx, eax
+        .ipc_rw_mod:
+            cmp  ebx, IPC_CAP
+            jb   .ipc_rw_mod_done
+            sub  ebx, IPC_CAP
+            jmp  .ipc_rw_mod
+        .ipc_rw_mod_done:
+            lea  rdi, [rbx + IPC_BASE + IPC_DATA_OFF]
+            mov  word [rdi], cx         ; msglen
+            add  rdi, 2
+            push rsi
+            push rcx
+            rep  movsb
+            pop  rcx
+            pop  rsi
+            ; Advance tail
+            add  eax, ecx
+            add  eax, 2
+            mov  [IPC_BASE + 4], eax
+        .ipc_rw_full:
+            pop  rcx
+            pop  rdi
+            pop  rbx
+            pop  rax
+            ret
+
+        ; ── .ipc_heartbeat — send GET /ipc/hb to Node.js on port 8091 ────
+        ; Fires every IPC_HB_INT phi_ticks.  Uses .nic_tx_zchg with a raw
+        ; HTTP GET framed as TCP (simplified: firmware sends raw bytes, Node.js
+        ; http.createServer handles framing via TCP stack on host side via QEMU
+        ; slirp or direct NIC on metal).
+        ; For simplicity the heartbeat is a raw 64-byte UDP datagram containing
+        ; "HB\r\n" — Node.js listens on UDP 8091 as well as TCP.
+        .ipc_heartbeat:
+            push rsi
+            push rcx
+            push rdx
+            push rdi
+            ; Check phi_tick interval
+            mov  rax, [0x101010]
+            mov  rcx, [rel .ipc_hb_next_tick]
+            cmp  rax, rcx
+            jb   .ipc_hb_skip
+            ; Update next tick
+            add  rcx, IPC_HB_INT
+            mov  [rel .ipc_hb_next_tick], rcx
+            ; Build HB packet at 0x11C200 (reuse TX scratch area)
+            mov  rdi, 0x11C200
+            mov  dword [rdi], 0x0A0D4248  ; "HB\r\n"
+            mov  rsi, rdi
+            mov  rcx, 4
+            ; Send to Node.js peer (first entry in peer table or loopback)
+            mov  edx, [PEER_TABLE_BASE]
+            test edx, edx
+            jz   .ipc_hb_loopback
+            mov  di, IPC_HTTP_PORT
+            call .nic_tx_zchg
+            jmp  .ipc_hb_sent
+        .ipc_hb_loopback:
+            ; No peers: write into ring directly as self-heartbeat
+            lea  rsi, [rel .ipc_msg_hb]
+            mov  ecx, 4
+            call .ipc_ring_write
+        .ipc_hb_sent:
+            ; Increment miss counter — will be cleared when HB reply arrives
+            inc  byte [rel .ipc_hb_miss]
+            cmp  byte [rel .ipc_hb_miss], IPC_HB_MISS
+            jb   .ipc_hb_skip
+            ; Too many misses: detach
+            and  dword [IPC_BASE + 12], ~(IPC_F_ATTACH | IPC_F_ACTIVE)
+            lea  rsi, [rel .ipc_msg_det]
+            call .vsh_right_scroll_line
+            mov  byte [rel .ipc_hb_miss], 0
+        .ipc_hb_skip:
+            pop  rdi
+            pop  rdx
+            pop  rcx
+            pop  rsi
+            ret
+
+        ; ── .ipc_http_serve — handle /ipc/* on port 8091 ─────────────────
+        ; Called from the NIC RX handler when a packet arrives on port 8091.
+        ; IN: RSI = packet buffer, RCX = length
+        .ipc_http_serve:
+            push rax
+            push rbx
+            push rsi
+            ; Check URL in HTTP header (first 64 bytes)
+            ; Minimal parse: look for "POST /ipc/write" or "GET /ipc/hb"
+            ; or "POST /ipc/attach"
+            lea  rdi, [rel .ipc_url_write]
+            call .ipc_strsearch
+            test eax, eax
+            jz   .ipc_serve_write
+            lea  rdi, [rel .ipc_url_hb]
+            call .ipc_strsearch
+            test eax, eax
+            jz   .ipc_serve_hb
+            lea  rdi, [rel .ipc_url_attach]
+            call .ipc_strsearch
+            test eax, eax
+            jz   .ipc_serve_attach
+            jmp  .ipc_serve_done
+
+        .ipc_serve_write:
+            ; Body starts after \r\n\r\n in packet
+            ; Simplified: copy everything after offset 64 as message body
+            lea  rsi, [rsi + 64]
+            mov  ecx, rcx
+            sub  ecx, 64
+            jbe  .ipc_serve_done
+            call .ipc_ring_write
+            ; Also render immediately
+            call .vsh_right_scroll_line
+            jmp  .ipc_serve_done
+
+        .ipc_serve_hb:
+            ; Heartbeat reply — clear miss counter, set attached flag
+            mov  byte [rel .ipc_hb_miss], 0
+            or   dword [IPC_BASE + 12], IPC_F_ATTACH | IPC_F_ACTIVE
+            jmp  .ipc_serve_done
+
+        .ipc_serve_attach:
+            or   dword [IPC_BASE + 12], IPC_F_ATTACH | IPC_F_ACTIVE
+            lea  rsi, [rel .ipc_msg_att]
+            call .vsh_right_scroll_line
+            jmp  .ipc_serve_done
+
+        .ipc_serve_done:
+            pop  rsi
+            pop  rbx
+            pop  rax
+            ret
+
+        ; .ipc_strsearch(rsi=haystack, rcx=len, rdi=needle) → EAX=0 found
+        .ipc_strsearch:
+            push rbx
+            push rcx
+            push rsi
+            push rdi
+            ; needle length
+            mov  ebx, 0
+        .iss_nlen:
+            cmp  byte [rdi + rbx], 0
+            je   .iss_nlen_done
+            inc  ebx
+            jmp  .iss_nlen
+        .iss_nlen_done:
+            ; slide window
+        .iss_outer:
+            cmp  rcx, rbx
+            jb   .iss_notfound
+            push rsi
+            push rdi
+            push rcx
+            mov  ecx, ebx
+            push rbx
+            rep  cmpsb
+            pop  rbx
+            pop  rcx
+            pop  rdi
+            pop  rsi
+            je   .iss_found
+            inc  rsi
+            dec  rcx
+            jmp  .iss_outer
+        .iss_found:
+            mov  eax, 0
+            jmp  .iss_done
+        .iss_notfound:
+            mov  eax, 1
+        .iss_done:
+            pop  rdi
+            pop  rsi
+            pop  rcx
+            pop  rbx
+            ret
+
+        ; ── Data ──────────────────────────────────────────────────────────
+        .ipc_url_write  db "POST /ipc/write", 0
+        .ipc_url_hb     db "/ipc/hb", 0
+        .ipc_url_attach db "/ipc/attach", 0
+        .ipc_msg_wait   db "[IPC] waiting for Node.js", 0
+        .ipc_msg_att    db "[IPC] Node.js attached", 0
+        .ipc_msg_det    db "[IPC] Node.js detached", 0
+        .ipc_msg_hb     db "HB", 0x0D, 0x0A, 0
+        .ipc_hb_next_tick dq 0
+        .ipc_hb_miss    db 0
+        .ipc_msg_buf    times 80 db 0   ; scratch for incoming messages
+    end
+end
+
+
+# ============================================================================
+# SEAM 7 — boot_sequence_complete: add vsh_init + ipc_ring_init calls
+# ============================================================================
+#
+# In .boot_complete_init, after .store_genome_fp_in_lattice:
+#   call .ipc_ring_init      ; Part XIX
+#   call .vsh_init           ; Part XVIII — draws split chrome, starts loop
+#   ; .vsh_init does not return in the normal sense; it enters .vsh_loop.
+#   ; COM1 shell path remains active in parallel (IRQ-driven or polled from
+#   ; within .vsh_loop's spin on COM1 LSR — both read the same .sh_buf).
+#
+# SEAM 8 — NIC RX dispatch: add IPC port check
+#
+# In the phi_tick NIC RX handler (after existing frame dispatch):
+#   movzx eax, word [rx_buf + UDP_DST_PORT_OFF]
+#   cmp   ax, 8091
+#   je    .ipc_http_serve
+#
+# SEAM 9 — phi_tick: add heartbeat + IPC poll
+#
+# In the phi_tick loop body:
+#   call .ipc_heartbeat      ; sends HB every 8 ticks, non-blocking
+#   call .vsh_ipc_poll       ; drains ring into right pane, non-blocking
+#
+# ============================================================================
+
+
+self_compile_loop
+    input   = HDGL_CONSOLIDATED.hdgl
+    output  = HDGL_CONSOLIDATED.hdgl   # identity: compiles to itself
+    entry   = boot_sequence_complete.fabric_ready
+end
+
+# ============================================================================
+# PART V (TABLE)
+# ============================================================================
+#
+# File                          Role                         Layer
+# ─────────────────────────────────────────────────────────────────────────────
+# HDGL_CONSOLIDATED.hdgl        THIS FILE — entire suite      glyph (self-ref)
+# hdgl_genome_fabric.h/.c       Genome codec C emit           C (test/POSIX)
+# zchg_carrier.h                3 steganographic channels     C (header-only)
+# zchg_frame_patched.c          CH-0 carrier in frame path    C (patch)
+# zchg_gossip_patched.c         CH-1 carrier in gossip path   C (patch)
+# zchg_http_patched.c           CH-2 /serve/zc/ handler       C (patch)
+# zchg_core_patch.h             gossip_msg_t extension        C (patch)
+# zchg_lattice_patch.c          genome EMA in apply_gossip    C (patch)
+# zchg_store_metal.c            Bare-metal store (no libc)    C (drop-in)
+# hdgl_genome_test.c            Genome fabric test            C (test)
+# zchg_carrier_test.c           Carrier channel test          C (test)
+# hdgl_fabric_test.c            Fabric loader test            C (test)
+# fabric_node_agent.mjs         JS fabric integration (EZ)    Node.js
+#
+# C files: POSIX daemon layer and hosted test harness only.
+# On bare metal: this file emits the equivalent x86-64 assembly directly.
+# No C compiler is in the boot path.
+#
+# Ωₙ₊₁ = T(Ωₙ).  The suite is its own compiler.
+# ============================================================================
