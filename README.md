@@ -2,7 +2,7 @@
 
 note to self - this readme as manifest is slightly out of date, it is a copy of the previous version's, that's why.
 
-# A version which supports node.js is added to the zip folder 6.23.26
+# A version which supports node.js is added to the zip folder 6.23.26, scroll down to the bottom of this manifest for a table of file changes
 
 # HDGL — Stand-Alone Source Tree (deduplicated, v0.2 → golden-dome)
 
@@ -159,6 +159,10 @@ larger Router64 kernel, DNA ENGINE V3, the EZ-by-zCHG MCP predecessor):
 confirmed identical across every tag, so it isn't duplicated here. It's
 documented in the prior versions rather than re-shipped
 as another zip-of-zips.
+
+# Table of node.js addition (zip folder only)
+
+FileFolderSubfolderhdgl_router64.asm06-router64-universal-VERIFIED-BOOTEDsrc/hdgl_router64.bin06-router64-universal-VERIFIED-BOOTEDbin/hdgl_router64.img06-router64-universal-VERIFIED-BOOTEDbin/hdgl_mbr.bin06-router64-universal-VERIFIED-BOOTEDbin/BOOTX64.EFI06-router64-universal-VERIFIED-BOOTEDuefi/README-npm.md06-router64-universal-VERIFIED-BOOTED(root)analog-container.mjs02-analog-radio-extension(root)npm-bridge.mjs02-analog-radio-extension(root)
 
 README.md - Every folder has a
 different one (8 distinct versions across 9 states, never reused), and
