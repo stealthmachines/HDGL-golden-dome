@@ -160,11 +160,14 @@ confirmed identical across every tag, so it isn't duplicated here. It's
 documented in the prior versions rather than re-shipped
 as another zip-of-zips.
 
-# Table of node.js addition (zip folder only)
-
-FileFolderSubfolderhdgl_router64.asm06-router64-universal-VERIFIED-BOOTEDsrc/hdgl_router64.bin06-router64-universal-VERIFIED-BOOTEDbin/hdgl_router64.img06-router64-universal-VERIFIED-BOOTEDbin/hdgl_mbr.bin06-router64-universal-VERIFIED-BOOTEDbin/BOOTX64.EFI06-router64-universal-VERIFIED-BOOTEDuefi/README-npm.md06-router64-universal-VERIFIED-BOOTED(root)analog-container.mjs02-analog-radio-extension(root)npm-bridge.mjs02-analog-radio-extension(root)
-
 README.md - Every folder has a
 different one (8 distinct versions across 9 states, never reused), and
 none of them are source. Available on request if you want the prose
 history rather than the code history.
+
+# Table of node.js addition (zip folder only)
+
+<img width="797" height="421" alt="image" src="https://github.com/user-attachments/assets/210046ad-737f-4961-a8dc-f085ec962e55" />
+
+The same table expressed in bot-readable format:
+FileFolderSubfolderhdgl_router64.asm06-router64-universal-VERIFIED-BOOTEDsrc/hdgl_router64.bin06-router64-universal-VERIFIED-BOOTEDbin/hdgl_router64.img06-router64-universal-VERIFIED-BOOTEDbin/hdgl_mbr.bin06-router64-universal-VERIFIED-BOOTEDbin/BOOTX64.EFI06-router64-universal-VERIFIED-BOOTEDuefi/README-npm.md06-router64-universal-VERIFIED-BOOTED(root)analog-container.mjs02-analog-radio-extension(root)npm-bridge.mjs02-analog-radio-extension(root)
