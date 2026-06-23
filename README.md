@@ -2,6 +2,8 @@
 
 note to self - this readme as manifest is slightly out of date, it is a copy of the previous version's, that's why.
 
+# A version which supports node.js is added to the zip folder 6.23.26
+
 # HDGL — Stand-Alone Source Tree (deduplicated, v0.2 → golden-dome)
 
 42 files, one copy of each, organized by what they actually are rather
