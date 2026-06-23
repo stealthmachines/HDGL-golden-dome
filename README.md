@@ -167,7 +167,13 @@ history rather than the code history.
 
 # Table of node.js addition (zip folder only)
 
-<img width="797" height="421" alt="image" src="https://github.com/user-attachments/assets/210046ad-737f-4961-a8dc-f085ec962e55" />
-
-The same table expressed in bot-readable format:
-FileFolderSubfolderhdgl_router64.asm06-router64-universal-VERIFIED-BOOTEDsrc/hdgl_router64.bin06-router64-universal-VERIFIED-BOOTEDbin/hdgl_router64.img06-router64-universal-VERIFIED-BOOTEDbin/hdgl_mbr.bin06-router64-universal-VERIFIED-BOOTEDbin/BOOTX64.EFI06-router64-universal-VERIFIED-BOOTEDuefi/README-npm.md06-router64-universal-VERIFIED-BOOTED(root)analog-container.mjs02-analog-radio-extension(root)npm-bridge.mjs02-analog-radio-extension(root)
+| File                 | Folder                                | Subfolder |
+| -------------------- | ------------------------------------- | --------- |
+| hdgl_router64.asm    | 06-router64-universal-VERIFIED-BOOTED | src/      |
+| hdgl_router64.bin    | 06-router64-universal-VERIFIED-BOOTED | bin/      |
+| hdgl_router64.img    | 06-router64-universal-VERIFIED-BOOTED | bin/      |
+| hdgl_mbr.bin         | 06-router64-universal-VERIFIED-BOOTED | bin/      |
+| BOOTX64.EFI          | 06-router64-universal-VERIFIED-BOOTED | uefi/     |
+| README-npm.md        | 06-router64-universal-VERIFIED-BOOTED | (root)    |
+| analog-container.mjs | 02-analog-radio-extension             | (root)    |
+| npm-bridge.mjs       | 02-analog-radio-extension             | (root)    |
