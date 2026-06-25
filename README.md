@@ -576,13 +576,7 @@ $$
 
 ## Factored Form
 
-\[
-L_i(z)
-=
-\phi^{-1/\phi}\sqrt{F_nP_n2^n}(1+z)^n
-+
-1_{\rm eff}(i)e^{i\pi\Lambda_\phi(i)}
-\]
+Lᵢ(z) = φ⁻¹⁄φ · √(FₙPₙ2ⁿ) · (1+z)ⁿ + 1_eff(i) · e^(iπΛφ(i))
 
 ---
 
