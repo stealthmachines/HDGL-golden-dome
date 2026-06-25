@@ -107,7 +107,8 @@ This version adds the **analog radio extension**: earth-to-earth communication v
 
 ---
 
-## The physics (unified force equation)
+## The abbridged physics (unified force equation), which intentionally ommits "Extended Physics, Including Exotics"
+Scroll down for "Extended Physics, Including Exotics", or better see https://github.com/stealthmachines/HDGL-golden-dome/blob/v0.0/fine_tuned/hdgl_unified_force_fine_cross-checked.hdgl
 
 ```
 F = (ΩC²) / (m·s) *m=meters, s=seconds, C=Coloumbs, Ω=Ohms when not unitless    [Josef Kulovany's corrected force equation]
@@ -624,6 +625,10 @@ glyph one_eff
         cosine_projection   = "|cos(πβᵢφ)|   — projection of φ-phase onto real axis"
         prime_information   = "ln(Pₙᵢ)        — information content of prime at step i"
         phi_decay           = "1/φ^(nᵢ+βᵢ)   — corrections vanish as n grows"
+
+# NEW WORKS:
+https://zchg.org/t/warp-speed-master-luke/1025/
+https://github.com/stealthmachines/HDGL-golden-dome/blob/v0.0/experimental-concept-analog-over-digital-dna.MD
 
 *Licensed per https://zchg.org/t/legal-notice-copyright-applicable-ip-and-licensing-read-me/440*  
 *COPYRIGHT.html applies to all files in this suite.*
