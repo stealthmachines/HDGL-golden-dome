@@ -626,9 +626,11 @@ glyph one_eff
         prime_information   = "ln(Pₙᵢ)        — information content of prime at step i"
         phi_decay           = "1/φ^(nᵢ+βᵢ)   — corrections vanish as n grows"
 
+See also: https://zchg.org/t/x-1-0-to-bridge-eulers-phi-pi/955
+
 # NEW WORKS:
-https://zchg.org/t/warp-speed-master-luke/1025/
-https://github.com/stealthmachines/HDGL-golden-dome/blob/v0.0/experimental-concept-analog-over-digital-dna.MD
+* https://zchg.org/t/warp-speed-master-luke/1025/
+* https://github.com/stealthmachines/HDGL-golden-dome/blob/v0.0/experimental-concept-analog-over-digital-dna.MD
 
 *Licensed per https://zchg.org/t/legal-notice-copyright-applicable-ip-and-licensing-read-me/440*  
 *COPYRIGHT.html applies to all files in this suite.*
