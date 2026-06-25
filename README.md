@@ -577,14 +577,9 @@ $$
 ## Factored Form
 
 $$
-\mathcal{L}_i(z)
-=
-\phi^{-1/\phi}
-\sqrt{F_n P_n 2^n}
-(1+z)^n
-+
-1_{\mathrm{eff}}(i)\,
-e^{i\pi\Lambda_{\phi}(i)}
+L_i(z) =
+\phi^{-1/\phi}\sqrt{F_n P_n 2^n}(1+z)^n
++ 1_{eff}(i)e^{i\pi\Lambda_\phi(i)}
 $$
 
 ---
