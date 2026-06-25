@@ -576,16 +576,13 @@ $$
 
 ## Factored Form
 
-$$
+\[
 L_i(z)
 =
-\phi^{-1/\phi}
-\sqrt{F_n P_n 2^n}
-(1+z)^n
+\phi^{-1/\phi}\sqrt{F_nP_n2^n}(1+z)^n
 +
-1_{eff}(i)
-e^{i\pi\Lambda_\phi(i)}
-$$
+1_{\rm eff}(i)e^{i\pi\Lambda_\phi(i)}
+\]
 
 ---
 
