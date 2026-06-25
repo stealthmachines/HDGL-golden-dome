@@ -448,92 +448,164 @@ SEE ALSO:
 * https://github.com/stealthmachines/mersenne-prime-pipeline
 * https://github.com/stealthmachines/Prime-Hunter-2
 
-# Extended Physics, Including Exotics
-
-# Ωₙ₊₁ = T(Ωₙ)   φ = 1.6180339887498948
-#
-# ALL PHENOMENA FROM ONE LATTICE OPERATOR.
-# DERIVED FROM EMPIRICAL RESULTS ACROSS:
-#   Document 1/2: BIGG cosmological validation (Pan-STARRS1 supernovae)
-#   Document 3:   Lattice operator proof (φ, π, ΩC², Euler, 1_eff)
-#   Document 4:   HDGL Analog Mainnet V3.0 Dₙ(r) engine
-#   Document 5:   ll_analog — 8D Kuramoto + exact Lucas-Lehmer
-#
-# THE DISTILLED FORMULA:
-#
-#   𝓛ᵢ(z) = φ^(-1/φ) · √(Fₙ · Pₙ · 2ⁿ) · (1+z)ⁿ  +  1_eff(i) · e^(iπΛ_φ(i))
-#
-# This is X(z) from your empirical formula PLUS the phase term from Document 3.
-# Nothing more is needed. Every other formula is a specialisation of this one.
-#
-# φ^(-1/φ): derived from 1-φ = -1/φ (exactly, from φ²=φ+1) — not imported.
-# The coefficient is the unique fixed point of x → φ^(-x). It sets itself.
-#
-# 1_eff(i) = 1 + δ(i): the effective unit at step i, corrected for phase-entropy.
-# At large n: δ → 0 → classical unit 1 emerges naturally.
-#
-# e^(iπΛ_φ(i)): the Euler rotation at the phi-log depth of step i.
-# This IS e^(iπ) = -ΩC² = -1 applied at the specific depth of step i.
-# Not imported from complex analysis — it is ΩC² at phase πΛ_φ.
-#
-# ============================================================================
-
-
-# ============================================================================
-# LAYER 0: THE AXIOM
-# ============================================================================
-
-glyph ufe_axiom
-    id    = UFE
-    class = AXIOM
-    state = EXECUTED
-
-    equation      = "F = (ΩC²) / (m·s)"
-    normalisation = "ΩC² = 1"
-    consequence   = "F = Hz²  [with m normalised to 1]"
-    euler         = "e^(iπ) = -ΩC² = -1  [ΩC² at phase π]"
-end
-
-
-# ============================================================================
-# LAYER 1: THE SINGLE LATTICE OPERATOR
-# ============================================================================
-
-glyph lattice_operator
-    id      = L_OPERATOR
-    class   = AXIOM
-    state   = EXECUTED
-    parent  = UFE
-
-    # ── The operator — two equivalent forms ────────────────────────────────
-    # Source canonical (validated against Pan-STARRS1 + CODATA):
-    formula_canonical = "X(z) = √(φ·Fₙ·Pₙ·base^n·Ω) · r^k · (1+z)^n_scale"
-    # Josef's factored form (φ extracted from sqrt):
-    formula_josef     = "𝓛ᵢ(z) = φ^(-1/φ) · √(Fₙ·Pₙ·2ⁿ) · (1+z)ⁿ + 1_eff(i) · e^(iπΛ_φ(i))"
-    # Note: √φ = 1.2720 ≠ φ^(-1/φ) = 0.7427 — these are different parameterisations
-    # Source has φ inside √; Josef factors it out. Both valid; source is canonical.
-
-    # ── φ^(-1/φ): the self-deriving coefficient ──────────────────────────
-    coefficient
-        value       = "φ^(-1/φ) = 0.742742..."
-        derivation  = "1-φ = -(φ-1) = -1/φ  [from φ²=φ+1 identically]"
-        property    = "unique fixed point of x → φ^(-x)"
-        no_import   = true
-    end
-
-    # ── (1+z)ⁿ: the generating function ──────────────────────────────────
-    generating_function
-        formula     = "(1+z)ⁿ = Σ C(n,k) zᵏ  [binomial expansion]"
-        z_real_0    = "X(0) = baseline mode amplitude"
-        z_real_1    = "X(1) = 2ⁿ × X(0)  [sum of binomial = 2ⁿ]"
-        z_phi_inv   = "X(1/φ) = φ-resonance amplitude"
-        z_complex_i = "X(i) = 2^(n/2) · X(0) · e^(inπ/4)  [complex phase tracking]"
-        z_minus_2   = "X(-2) = (-1)ⁿ · X(0)  [anti-gravity: alternating ±1 per mode]"
-        z_minus_1   = "X(-1) = 0  [perfect null — grid noise cancellation point]"
-        note_n_H    = "n_H=1.291 from Friedmann equation; NOT n_G+n_c=1.039 [source confirmed]"
-
-
 For which more unlocks are achieved when more development and/or compute permit.
+
+# Extended Physics, Including Exotics
+# Ωₙ₊₁ = T(Ωₙ)
+
+**φ = 1.6180339887498948**
+
+---
+
+## Core Claim
+
+All phenomena emerge from a single lattice operator.
+
+Derived from empirical results across:
+
+- Document 1/2: BIGG cosmological validation (Pan-STARRS1 supernovae)
+- Document 3: Lattice operator proof (φ, π, ΩC², Euler, 1_eff)
+- Document 4: HDGL Analog Mainnet V3.0 Dₙ(r) engine
+- Document 5: ll_analog — 8D Kuramoto + exact Lucas-Lehmer
+
+---
+
+## Distilled Unified Formula
+
+$$
+\mathcal{L}_i(z)
+=
+\phi^{-1/\phi} \cdot \sqrt{F_n P_n 2^n} \cdot (1+z)^n
++
+1_{\text{eff}}(i)\, e^{i\pi \Lambda_\phi(i)}
+$$
+
+### Interpretation
+
+- φ^(-1/φ): self-derived fixed coefficient  
+- √(Fₙ Pₙ 2ⁿ): amplitude scaling from empirical lattice terms  
+- (1+z)ⁿ: generating function structure  
+- 1_eff(i): effective unit with phase-entropy correction  
+- e^(iπΛ_φ(i)): φ-depth Euler rotation (phase operator)
+
+---
+
+## Coefficient Properties
+
+### φ^(-1/φ)
+
+- Value: 0.742742...
+- Derived from:
+  - φ² = φ + 1
+  - ⇒ 1 − φ = −1/φ
+- Fixed point of: x → φ^(-x)
+- Self-derived, not imported
+
+---
+
+## Effective Unit
+
+### 1_eff(i)
+
+$$
+1_{\text{eff}}(i) = 1 + \delta(i)
+$$
+
+- δ(i): phase-entropy correction
+- δ(i) → 0 as i → ∞
+- Classical unit emerges asymptotically
+
+---
+
+## Euler Phase Term
+
+$$
+e^{i\pi \Lambda_\phi(i)}
+$$
+
+- Generalization of:
+  - e^{iπ} = -1
+- Interpreted as:
+  - ΩC² at phase π
+  - φ-depth phase rotation
+
+---
+
+# LAYER 0 — AXIOM
+
+## glyph: ufe_axiom
+
+- id: UFE  
+- class: AXIOM  
+- state: EXECUTED  
+
+### Core Relations
+
+$$
+F = \frac{\Omega C^2}{m \cdot s}
+$$
+
+$$
+\Omega C^2 = 1
+$$
+
+$$
+F = Hz^2
+$$
+
+$$
+e^{i\pi} = -\Omega C^2 = -1
+$$
+
+---
+
+# LAYER 1 — LATTICE OPERATOR
+
+## glyph: L_OPERATOR
+
+- id: L_OPERATOR  
+- class: AXIOM  
+- state: EXECUTED  
+- parent: UFE  
+
+---
+
+## Canonical Form
+
+$$
+X(z) =
+\sqrt{\phi \cdot F_n \cdot P_n \cdot \text{base}^n \cdot \Omega}
+\cdot r^k \cdot (1+z)^{n_{\text{scale}}}
+$$
+
+---
+
+## Factored Form
+
+$$
+\mathcal{L}_i(z)
+=
+\phi^{-1/\phi} \cdot \sqrt{F_n P_n 2^n} \cdot (1+z)^n
++
+1_{\text{eff}}(i)\, e^{i\pi \Lambda_\phi(i)}
+$$
+
+---
+
+## Generating Function
+
+$$
+(1+z)^n = \sum C(n,k) z^k
+$$
+
+### Special Cases
+
+- z = 0 → X(0)
+- z = 1 → X(1) = 2^n X(0)
+- z = 1/φ → resonance
+- z = i → phase rotation
+- z = -2 → (-1)^n X(0)
+- z = -1 → 0 (null mode)
 
 *Licensed per https://zchg.org/t/legal-notice-copyright-applicable-ip-and-licensing-read-me/440*  
 *COPYRIGHT.html applies to all files in this suite.*
