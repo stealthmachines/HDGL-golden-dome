@@ -472,13 +472,7 @@ Derived from empirical results across:
 
 ## Distilled Unified Formula
 
-$$
-\mathcal{L}_i(z)
-=
-\phi^{-1/\phi} \cdot \sqrt{F_n P_n 2^n} \cdot (1+z)^n
-+
-1_{\text{eff}}(i)\, e^{i\pi \Lambda_\phi(i)}
-$$
+$$ \mathcal{L}_i(z) = \phi^{-1/\phi} \cdot \sqrt{F_n P_n 2^n} \cdot (1+z)^n + 1_{\text{eff}}(i)\, e^{i\pi \Lambda_\phi(i)} $$
 
 ### Interpretation
 
