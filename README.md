@@ -595,110 +595,35 @@ $$
 - z = -2 → (-1)^n X(0)
 - z = -1 → 0 (null mode)
 
-
-# ============================================================================
 # LAYER 2: 1_eff — THE EFFECTIVE UNIT
-# ============================================================================
 
-## Glyph: ONE_EFF
+glyph one_eff
+    id      = ONE_EFF
+    class   = OPERATOR
+    state   = EXECUTED
+    parent  = { UFE, L_OPERATOR }
 
-| Field | Value |
-|---------|---------|
-| ID | ONE_EFF |
-| Class | OPERATOR |
-| State | EXECUTED |
-| Parent | UFE, L_OPERATOR |
+    # ── The diagram ──────────────────────────────────────────────────────
+    #
+    #   φ recursion
+    #          │
+    #          ▼
+    #   1_eff(i)  ◀── δ(i) ◀── π phase rotation
+    #          │
+    #          ▼
+    #      lattice operator 𝓛
+    #
+    # φ recursion → coefficient φ^(-1/φ) → magnitude arm of 𝓛
+    # π phase rotation → cos projection → δ(i) → 1_eff(i) → phase arm of 𝓛
 
----
+    formula = "1_eff(i) = 1 + δ(i)"
+    delta   = "δ(i) = |cos(πβᵢφ)| · ln(Pₙᵢ) / φ^(nᵢ+βᵢ)"
 
-## Structure
-
-```text
-      φ recursion
-           │
-           ▼
-      1_eff(i)
-           ▲
-           │
-        δ(i)
-           ▲
-           │
-    π phase rotation
-
-           │
-           ▼
-
-    Lattice Operator L
-```
-
-### Flow
-
-- φ recursion → coefficient φ^(-1/φ) → magnitude arm of L
-- π phase rotation → cosine projection → δ(i) → 1_eff(i) → phase arm of L
-
----
-
-## Effective Unit
-
-```text
-1_eff(i) = 1 + δ(i)
-```
-
----
-
-## Correction Term
-
-```text
-δ(i) = |cos(πβᵢφ)| · ln(Pₙᵢ) / φ^(nᵢ + βᵢ)
-```
-
----
-
-## Components of δ(i)
-
-### Cosine Projection
-
-```text
-|cos(πβᵢφ)|
-```
-
-Projection of φ-phase onto the real axis.
-
-### Prime Information
-
-```text
-ln(Pₙᵢ)
-```
-
-Information content of the prime at step *i*.
-
-### Phi Decay
-
-```text
-1 / φ^(nᵢ + βᵢ)
-```
-
-Correction term that vanishes as n increases.
-
----
-
-## Interpretation
-
-δ(i) is the phase-entropy correction applied to the unit value.
-
-As n → ∞:
-
-```text
-δ(i) → 0
-```
-
-Therefore:
-
-```text
-1_eff(i) → 1
-```
-
-The classical unit emerges as the asymptotic limit of the lattice.
+    # Three multiplicative inputs to δ(i):
+    delta_components
+        cosine_projection   = "|cos(πβᵢφ)|   — projection of φ-phase onto real axis"
+        prime_information   = "ln(Pₙᵢ)        — information content of prime at step i"
+        phi_decay           = "1/φ^(nᵢ+βᵢ)   — corrections vanish as n grows"
 
 *Licensed per https://zchg.org/t/legal-notice-copyright-applicable-ip-and-licensing-read-me/440*  
 *COPYRIGHT.html applies to all files in this suite.*
